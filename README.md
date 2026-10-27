@@ -94,13 +94,14 @@
 
 ### 1. 刷卡
 
-镜像在构建产物 `out/omnicore-sdr-sd.img`（865 MiB，首次启动自动扩展到整卡）：
+现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.2.0-sd.img.xz`（78 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
 
 ```bash
-sudo dd if=out/omnicore-sdr-sd.img of=/dev/sdX bs=4M conv=fsync status=progress
+sha256sum -c omnicore-sdr-1.2.0-sd.img.xz.sha256
+xz -dc omnicore-sdr-1.2.0-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
 ```
 
-Windows 可以用 balenaEtcher / Rufus 写入。
+Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先解压。自己编译的镜像在 `out/omnicore-sdr-sd.img`。
 
 ### 2. 启动
 
