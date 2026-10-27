@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="310" viewBox="0 0 760 310" role="img">
+<title>libiio RX 吞吐：1.1.0 vs 1.2.0</title><desc>Grouped bars. 1.1.0 (splice proxy): single RX 56.7 MB/s, dual RX 59.4 MB/s. 1.2.0 (zero-copy): single RX 72.2 MB/s, dual RX 79.5 MB/s. Gigabit Ethernet payload limit about 117 MB/s.</desc>
+
+<style>
+  svg { --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+        --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#0ca30c; --crit:#d03b3b;
+        --box:#f3f2ee; --box-line:#c3c2b7; --hl:#e6f0fc; --hl-line:#2a78d6; --warm:#fdeee6; --warm-line:#eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+          --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#0ca30c; --crit:#d03b3b;
+          --box:#242422; --box-line:#4a4a46; --hl:#1b2a3d; --hl-line:#3987e5; --warm:#3a2419; --warm-line:#d95926; }
+  }
+  text { font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: var(--ink); }
+  .t { font-size: 17px; font-weight: 600; }
+  .st { font-size: 12.5px; fill: var(--ink2); }
+  .lb { font-size: 13px; fill: var(--ink2); }
+  .sm { font-size: 11.5px; fill: var(--muted); }
+  .v { font-size: 12.5px; font-weight: 600; fill: var(--ink); font-variant-numeric: tabular-nums; }
+  .tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+  .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .box { fill: var(--box); stroke: var(--box-line); stroke-width: 1; }
+  .hl { fill: var(--hl); stroke: var(--hl-line); stroke-width: 1.5; }
+  .warm { fill: var(--warm); stroke: var(--warm-line); stroke-width: 1.5; }
+  .bt { font-size: 13px; font-weight: 600; }
+  .bs { font-size: 11.5px; fill: var(--ink2); }
+  .wire { stroke: var(--ink2); stroke-width: 1.5; fill: none; }
+  .wire-hl { stroke: var(--s1); stroke-width: 2.5; fill: none; }
+  .wire-w { stroke: var(--s2); stroke-width: 2.5; fill: none; }
+</style>
+
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink2)"/></marker><marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s1)"/></marker><marker id="ahw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s2)"/></marker></defs>
+<rect width="100%" height="100%" rx="10" style="fill:var(--surface)"/>
+<text x="24.0" y="34.0" class="t" text-anchor="start" >libiio 以太网 RX 吞吐（板子 → PC，iio_readdev，-b 1M）</text>
+<text x="24.0" y="54.0" class="st" text-anchor="start" >1.2.0 零拷贝比 1.1.0 代理方案快 27–34%；数据为刷卡后整卡验证的实测值</text>
+<rect x="24.0" y="74.0" width="12" height="12" rx="3" style="fill:var(--s1)"/>
+<text x="42.0" y="84.0" class="lb" text-anchor="start" >单路 RX（I/Q，2 个通道）</text>
+<rect x="226.2" y="74.0" width="12" height="12" rx="3" style="fill:var(--s2)"/>
+<text x="244.2" y="84.0" class="lb" text-anchor="start" >双路 RX（I/Q×2，4 个通道）</text>
+<line x1="190.0" y1="112.0" x2="190.0" y2="262.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="190.0" y="278.0" class="tick" text-anchor="middle" >0</text>
+<line x1="275.0" y1="112.0" x2="275.0" y2="262.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="275.0" y="278.0" class="tick" text-anchor="middle" >20</text>
+<line x1="360.0" y1="112.0" x2="360.0" y2="262.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="360.0" y="278.0" class="tick" text-anchor="middle" >40</text>
+<line x1="445.0" y1="112.0" x2="445.0" y2="262.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="445.0" y="278.0" class="tick" text-anchor="middle" >60</text>
+<line x1="530.0" y1="112.0" x2="530.0" y2="262.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="530.0" y="278.0" class="tick" text-anchor="middle" >80</text>
+<line x1="615.0" y1="112.0" x2="615.0" y2="262.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="615.0" y="278.0" class="tick" text-anchor="middle" >100</text>
+<line x1="700.0" y1="112.0" x2="700.0" y2="262.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="700.0" y="278.0" class="tick" text-anchor="middle" >120 MB/s</text>
+<line x1="190.0" y1="112.0" x2="190.0" y2="262.0" style="stroke:var(--axis);stroke-width:1"/>
+<line x1="687.2" y1="112" x2="687.2" y2="262" style="stroke:var(--ink2);stroke-width:1.5;stroke-dasharray:4 4"/>
+<text x="687.2" y="106.0" class="sm halo" text-anchor="middle" >千兆以太网上限 ≈117</text>
+<text x="178.0" y="144.0" class="bt" text-anchor="end" >1.1.0</text>
+<text x="178.0" y="162.0" class="bs" text-anchor="end" >splice 代理</text>
+<path d="M190.0,126.0 H427.0 a4.0,4.0 0 0 1 4.0,4.0 V144.0 a4.0,4.0 0 0 1 -4.0,4.0 H190.0 Z" style="fill:var(--s1)"/>
+<text x="437.0" y="142.0" class="v halo" text-anchor="start" >56.7</text>
+<path d="M190.0,150.0 H438.4 a4.0,4.0 0 0 1 4.0,4.0 V168.0 a4.0,4.0 0 0 1 -4.0,4.0 H190.0 Z" style="fill:var(--s2)"/>
+<text x="448.4" y="166.0" class="v halo" text-anchor="start" >59.4</text>
+<text x="178.0" y="214.0" class="bt" text-anchor="end" >1.2.0</text>
+<text x="178.0" y="232.0" class="bs" text-anchor="end" >零拷贝</text>
+<path d="M190.0,196.0 H492.9 a4.0,4.0 0 0 1 4.0,4.0 V214.0 a4.0,4.0 0 0 1 -4.0,4.0 H190.0 Z" style="fill:var(--s1)"/>
+<text x="502.9" y="212.0" class="v halo" text-anchor="start" >72.2</text>
+<path d="M190.0,220.0 H523.9 a4.0,4.0 0 0 1 4.0,4.0 V238.0 a4.0,4.0 0 0 1 -4.0,4.0 H190.0 Z" style="fill:var(--s2)"/>
+<text x="533.9" y="236.0" class="v halo" text-anchor="start" >79.5</text>
+</svg>

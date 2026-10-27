@@ -1,0 +1,6 @@
+#ifndef XPARAMETERS_PS_H
+#define XPARAMETERS_PS_H
+#define XPS_FPGA0_INT_ID 61U
+#define XPS_FPGA14_INT_ID 90U
+#define XPS_FPGA15_INT_ID 91U
+#endif

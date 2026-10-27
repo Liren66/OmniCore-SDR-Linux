@@ -1,0 +1,7 @@
+.cache/
+build/
+out/
+*.log
+backup/
+tests/results/
+__pycache__/

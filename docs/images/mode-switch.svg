@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="330" viewBox="0 0 900 330" role="img">
+<title>AD9361 归属切换（OCH 优先）</title><desc>USB mode is the default. A libiio connection while USB is idle switches to libiio mode in about 2.0 s; otherwise the client gets EBUSY. Any OCH command in libiio mode preempts: clients are dropped and the AD9361 returns to USB mode in 1.4 to 2.1 s, then the queued command runs. 5 s after the last client leaves it returns too.</desc>
+
+<style>
+  svg { --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+        --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#0ca30c; --crit:#d03b3b;
+        --box:#f3f2ee; --box-line:#c3c2b7; --hl:#e6f0fc; --hl-line:#2a78d6; --warm:#fdeee6; --warm-line:#eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+          --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#0ca30c; --crit:#d03b3b;
+          --box:#242422; --box-line:#4a4a46; --hl:#1b2a3d; --hl-line:#3987e5; --warm:#3a2419; --warm-line:#d95926; }
+  }
+  text { font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: var(--ink); }
+  .t { font-size: 17px; font-weight: 600; }
+  .st { font-size: 12.5px; fill: var(--ink2); }
+  .lb { font-size: 13px; fill: var(--ink2); }
+  .sm { font-size: 11.5px; fill: var(--muted); }
+  .v { font-size: 12.5px; font-weight: 600; fill: var(--ink); font-variant-numeric: tabular-nums; }
+  .tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+  .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .box { fill: var(--box); stroke: var(--box-line); stroke-width: 1; }
+  .hl { fill: var(--hl); stroke: var(--hl-line); stroke-width: 1.5; }
+  .warm { fill: var(--warm); stroke: var(--warm-line); stroke-width: 1.5; }
+  .bt { font-size: 13px; font-weight: 600; }
+  .bs { font-size: 11.5px; fill: var(--ink2); }
+  .wire { stroke: var(--ink2); stroke-width: 1.5; fill: none; }
+  .wire-hl { stroke: var(--s1); stroke-width: 2.5; fill: none; }
+  .wire-w { stroke: var(--s2); stroke-width: 2.5; fill: none; }
+</style>
+
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink2)"/></marker><marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s1)"/></marker><marker id="ahw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s2)"/></marker></defs>
+<rect width="100%" height="100%" rx="10" style="fill:var(--surface)"/>
+<text x="24.0" y="34.0" class="t" text-anchor="start" >模式切换：OCH 优先于 libiio</text>
+<text x="24.0" y="54.0" class="st" text-anchor="start" >排队的 OCH 命令在切回 USB 后按顺序执行，整个过程在 OCH 默认 5 s 超时之内</text>
+<rect x="60.0" y="120.0" width="220.0" height="96.0" rx="8" class="hl"/>
+<text x="170.0" y="142.0" class="bt" text-anchor="middle" >USB 模式（默认）</text>
+<text x="170.0" y="160.0" class="bs" text-anchor="middle" >SDK 经 spidev 控制 AD9361</text>
+<text x="170.0" y="176.0" class="bs" text-anchor="middle" >主循环 SCHED_FIFO 50 · CPU1</text>
+<rect x="620.0" y="120.0" width="220.0" height="96.0" rx="8" class="warm"/>
+<text x="730.0" y="142.0" class="bt" text-anchor="middle" >libiio 模式</text>
+<text x="730.0" y="160.0" class="bs" text-anchor="middle" >内核 ad9361 / cf_axi 驱动</text>
+<text x="730.0" y="176.0" class="bs" text-anchor="middle" >每个连接一个零拷贝 iiod</text>
+<path d="M282.0,140.0 L618.0,140.0" class="wire" marker-end="url(#ah)"/>
+<text x="450.0" y="120.0" class="lb" text-anchor="middle" >libiio 连接 + USB 空闲（无推流/TX，3 s 内无 OCH 命令）</text>
+<text x="450.0" y="157.0" class="sm halo" text-anchor="middle" >约 2.0 s（含 AD9361 LVDS 接口校准约 1.4 s）</text>
+<path d="M618.0,196.0 L282.0,196.0" class="wire" marker-end="url(#ah)"/>
+<text x="450.0" y="190.0" class="lb" text-anchor="middle" >任何 OCH 命令：先排队，断开 libiio，收回 AD9361</text>
+<text x="450.0" y="214.0" class="sm halo" text-anchor="middle" >1.4–2.1 s 后执行排队的命令</text>
+<text x="450.0" y="250.0" class="sm halo" text-anchor="middle" >最后一个 libiio 客户端断开 5 s 后也会切回 USB 模式</text>
+<path d="M120,218 C110,292 230,292 220,220" class="wire" marker-end="url(#ah)"/>
+<text x="170.0" y="300.0" class="sm halo" text-anchor="middle" >USB 正忙时来的 libiio 连接：回 EBUSY(16)</text>
+<path d="M680,218 C670,292 790,292 780,220" class="wire" marker-end="url(#ah)"/>
+<text x="730.0" y="300.0" class="sm halo" text-anchor="middle" >同一设备已在读流：新客户端 EBUSY，原流不受影响</text>
+</svg>

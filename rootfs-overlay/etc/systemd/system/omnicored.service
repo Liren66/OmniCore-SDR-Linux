@@ -1,0 +1,20 @@
+[Unit]
+Description=OmniCore SDR control daemon (USB3/OCH and libiio arbiter)
+# Needs only devtmpfs, sysfs and the root filesystem (all drivers are built in),
+# so it starts right after journald instead of waiting for basic.target.
+DefaultDependencies=no
+After=systemd-journald.socket systemd-remount-fs.service
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+ExecStart=/usr/sbin/omnicored -c /etc/omnicore/omnicored.conf
+Restart=on-failure
+RestartSec=2
+Nice=-10
+# USB mode runs SCHED_FIFO with mlockall(); omnicored sets both itself.
+LimitMEMLOCK=infinity
+LimitRTPRIO=99
+
+[Install]
+WantedBy=multi-user.target

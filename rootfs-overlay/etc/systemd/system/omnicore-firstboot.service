@@ -1,0 +1,13 @@
+[Unit]
+Description=OmniCore first boot: grow rootfs, SSH host keys, stable MAC
+ConditionPathExists=!/etc/omnicore/.firstboot-done
+Before=ssh.service dhcpcd.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/omnicore-firstboot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

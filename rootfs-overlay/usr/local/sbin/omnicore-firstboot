@@ -1,0 +1,15 @@
+#!/bin/sh
+# One-time setup on the board.
+set -e
+growpart /dev/mmcblk0 2 && resize2fs /dev/mmcblk0p2 || true
+ssh-keygen -A
+# Stable, locally administered MAC per SD card (macb would otherwise randomize every boot).
+if [ ! -f /etc/systemd/network/10-eth0-mac.link ]; then
+    mac=$(od -An -N5 -tx1 /dev/urandom | tr -s ' ' ':' | sed 's/^:/02:/')
+    mkdir -p /etc/systemd/network
+    printf '[Match]\nOriginalName=eth0\n\n[Link]\nMACAddress=%s\n' "$mac" > /etc/systemd/network/10-eth0-mac.link
+    ip link set eth0 down 2>/dev/null || true
+    ip link set eth0 address "$mac" 2>/dev/null || true
+    ip link set eth0 up 2>/dev/null || true
+fi
+touch /etc/omnicore/.firstboot-done

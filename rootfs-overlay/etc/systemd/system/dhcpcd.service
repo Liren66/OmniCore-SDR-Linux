@@ -1,0 +1,13 @@
+[Unit]
+Description=DHCP client (falls back to 192.168.2.1/24)
+Wants=network.target
+Before=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/dhcpcd -q -b
+ExecStop=/usr/sbin/dhcpcd -x
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,85 @@
+CONFIG_LOCALVERSION="-OmniCore-SDR"
+# CONFIG_LOCALVERSION_AUTO is not set
+
+# CH32 command link: AXI UART16550 in PL (/dev/ttyS1)
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_8250_NR_UARTS=4
+CONFIG_SERIAL_8250_RUNTIME_UARTS=4
+CONFIG_SERIAL_OF_PLATFORM=y
+CONFIG_SERIAL_XILINX_PS_UART=y
+CONFIG_SERIAL_XILINX_PS_UART_CONSOLE=y
+
+# omnicored access paths
+CONFIG_UIO=y
+CONFIG_UIO_PDRV_GENIRQ=y
+CONFIG_SPI_SPIDEV=y
+CONFIG_DEVMEM=y
+# CONFIG_STRICT_DEVMEM is not set
+# CONFIG_IO_STRICT_DEVMEM is not set
+CONFIG_GPIO_CDEV=y
+CONFIG_GPIO_SYSFS=y
+CONFIG_XILINX_XADC=y
+
+# AD9361 / AXI cores (built in; ownership switched by sysfs bind/unbind)
+CONFIG_AD9361=y
+CONFIG_CF_AXI_ADC=y
+CONFIG_CF_AXI_DDS=y
+CONFIG_AXI_DMAC=y
+
+# Ethernet: GEM0 + RTL8211FD-CG (schematic). The ADI defconfig enables many
+# other PHY drivers; switch them off explicitly.
+CONFIG_MACB=y
+CONFIG_REALTEK_PHY=y
+# CONFIG_MARVELL_PHY is not set
+# CONFIG_MICREL_PHY is not set
+# CONFIG_MOTORCOMM_PHY is not set
+# CONFIG_DP83867_PHY is not set
+# CONFIG_AT803X_PHY is not set
+# CONFIG_BROADCOM_PHY is not set
+# CONFIG_VITESSE_PHY is not set
+# CONFIG_MICROCHIP_PHY is not set
+# CONFIG_ICPLUS_PHY is not set
+# CONFIG_ADIN_PHY is not set
+# CONFIG_ADIN1100_PHY is not set
+# CONFIG_AX88796B_PHY is not set
+
+# Hardware this board does not have: the ADI defconfig targets the ZC702/ADV7511
+# evaluation boards (HDMI, audio, USB, cameras, WLAN, touchscreens).
+# CONFIG_DRM is not set
+# CONFIG_FB is not set
+# CONFIG_SOUND is not set
+# CONFIG_MEDIA_SUPPORT is not set
+# CONFIG_WIRELESS is not set
+# CONFIG_WLAN is not set
+# CONFIG_INPUT_TOUCHSCREEN is not set
+# CONFIG_USB_SUPPORT is not set
+
+# Debian/systemd requirements
+CONFIG_CGROUPS=y
+CONFIG_CGROUP_BPF=y
+CONFIG_BPF_SYSCALL=y
+CONFIG_MEMCG=y
+CONFIG_CGROUP_SCHED=y
+CONFIG_INOTIFY_USER=y
+CONFIG_SIGNALFD=y
+CONFIG_TIMERFD=y
+CONFIG_EPOLL=y
+CONFIG_FHANDLE=y
+CONFIG_AUTOFS_FS=y
+CONFIG_TMPFS=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_TMPFS_XATTR=y
+CONFIG_SECCOMP=y
+CONFIG_PACKET=y
+CONFIG_UNIX=y
+CONFIG_IPV6=y
+CONFIG_NET_NS=y
+CONFIG_EXT4_FS=y
+CONFIG_EXT4_FS_POSIX_ACL=y
+CONFIG_VFAT_FS=y
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_ISO8859_1=y
+# Kept on purpose: the ad9361/cf_axi_* IIO debug attributes (iio_attr -D, e.g.
+# loopback, bist_prbs, used by IIO Oscilloscope) live in debugfs.
+CONFIG_DEBUG_FS=y

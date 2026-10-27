@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="400" viewBox="0 0 900 400" role="img">
+<title>libiio 数据路径：1.1.0 代理 vs 1.2.0 零拷贝</title><desc>Before: DMA block (uncached) is copied by iiod write() into a loopback TCP socket, then omnicored splices it into the Ethernet socket. After: iiod vmsplices the DMA block pages into a pipe and splices them into the client socket; the GEM NIC reads the same pages; the kernel keeps the block from the DMA until the pages are released.</desc>
+
+<style>
+  svg { --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+        --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#0ca30c; --crit:#d03b3b;
+        --box:#f3f2ee; --box-line:#c3c2b7; --hl:#e6f0fc; --hl-line:#2a78d6; --warm:#fdeee6; --warm-line:#eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+          --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#0ca30c; --crit:#d03b3b;
+          --box:#242422; --box-line:#4a4a46; --hl:#1b2a3d; --hl-line:#3987e5; --warm:#3a2419; --warm-line:#d95926; }
+  }
+  text { font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: var(--ink); }
+  .t { font-size: 17px; font-weight: 600; }
+  .st { font-size: 12.5px; fill: var(--ink2); }
+  .lb { font-size: 13px; fill: var(--ink2); }
+  .sm { font-size: 11.5px; fill: var(--muted); }
+  .v { font-size: 12.5px; font-weight: 600; fill: var(--ink); font-variant-numeric: tabular-nums; }
+  .tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+  .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .box { fill: var(--box); stroke: var(--box-line); stroke-width: 1; }
+  .hl { fill: var(--hl); stroke: var(--hl-line); stroke-width: 1.5; }
+  .warm { fill: var(--warm); stroke: var(--warm-line); stroke-width: 1.5; }
+  .bt { font-size: 13px; font-weight: 600; }
+  .bs { font-size: 11.5px; fill: var(--ink2); }
+  .wire { stroke: var(--ink2); stroke-width: 1.5; fill: none; }
+  .wire-hl { stroke: var(--s1); stroke-width: 2.5; fill: none; }
+  .wire-w { stroke: var(--s2); stroke-width: 2.5; fill: none; }
+</style>
+
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink2)"/></marker><marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s1)"/></marker><marker id="ahw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s2)"/></marker></defs>
+<rect width="100%" height="100%" rx="10" style="fill:var(--surface)"/>
+<text x="24.0" y="34.0" class="t" text-anchor="start" >数据路径对比</text>
+<text x="24.0" y="54.0" class="st" text-anchor="start" >1.2.0 去掉了本地代理，DMA 块的物理页直接挂进 TCP 报文，CPU 不再逐字节读不可缓存内存</text>
+<text x="24.0" y="90.0" class="bt" text-anchor="start" >1.1.0</text>
+<text x="24.0" y="108.0" class="bs" text-anchor="start" >约 58 MB/s</text>
+<rect x="100.0" y="74.0" width="150.0" height="62.0" rx="8" class="box"/>
+<text x="175.0" y="96.0" class="bt" text-anchor="middle" >DMA 块</text>
+<text x="175.0" y="114.0" class="bs" text-anchor="middle" >不可缓存内存</text>
+<rect x="270.0" y="74.0" width="150.0" height="62.0" rx="8" class="warm"/>
+<text x="345.0" y="96.0" class="bt" text-anchor="middle" >iiod write()</text>
+<text x="345.0" y="114.0" class="bs" text-anchor="middle" >CPU 拷贝 ①</text>
+<rect x="440.0" y="74.0" width="150.0" height="62.0" rx="8" class="box"/>
+<text x="515.0" y="96.0" class="bt" text-anchor="middle" >回环 TCP</text>
+<text x="515.0" y="114.0" class="bs" text-anchor="middle" >omnicored splice</text>
+<rect x="610.0" y="74.0" width="150.0" height="62.0" rx="8" class="box"/>
+<text x="685.0" y="96.0" class="bt" text-anchor="middle" >网卡 GEM</text>
+<text x="685.0" y="114.0" class="bs" text-anchor="middle" >每包 cache 清理</text>
+<path d="M250.0,105.0 L268.0,105.0" class="wire" marker-end="url(#ah)"/>
+<path d="M420.0,105.0 L438.0,105.0" class="wire" marker-end="url(#ah)"/>
+<path d="M590.0,105.0 L608.0,105.0" class="wire" marker-end="url(#ah)"/>
+<rect x="790.0" y="74.0" width="90.0" height="62.0" rx="8" class="box"/>
+<text x="835.0" y="96.0" class="bt" text-anchor="middle" >PC</text>
+<text x="835.0" y="114.0" class="bs" text-anchor="middle" ></text>
+<path d="M760.0,105.0 L788.0,105.0" class="wire" marker-end="url(#ah)"/>
+<text x="24.0" y="204.0" class="bt" text-anchor="start" >1.2.0</text>
+<text x="24.0" y="222.0" class="bs" text-anchor="start" >约 80 MB/s</text>
+<rect x="100.0" y="188.0" width="150.0" height="62.0" rx="8" class="hl"/>
+<text x="175.0" y="210.0" class="bt" text-anchor="middle" >DMA 块</text>
+<text x="175.0" y="228.0" class="bs" text-anchor="middle" >vm_insert_page 映射</text>
+<rect x="270.0" y="188.0" width="150.0" height="62.0" rx="8" class="hl"/>
+<text x="345.0" y="210.0" class="bt" text-anchor="middle" >vmsplice</text>
+<text x="345.0" y="228.0" class="bs" text-anchor="middle" >页引用进管道</text>
+<rect x="440.0" y="188.0" width="150.0" height="62.0" rx="8" class="hl"/>
+<text x="515.0" y="210.0" class="bt" text-anchor="middle" >splice → socket</text>
+<text x="515.0" y="228.0" class="bs" text-anchor="middle" >skb 直接引用这些页</text>
+<rect x="610.0" y="188.0" width="150.0" height="62.0" rx="8" class="hl"/>
+<text x="685.0" y="210.0" class="bt" text-anchor="middle" >网卡 GEM</text>
+<text x="685.0" y="228.0" class="bs" text-anchor="middle" >DMA 读同一批页</text>
+<path d="M250.0,219.0 L268.0,219.0" class="wire-hl" marker-end="url(#ahb)"/>
+<path d="M420.0,219.0 L438.0,219.0" class="wire-hl" marker-end="url(#ahb)"/>
+<path d="M590.0,219.0 L608.0,219.0" class="wire-hl" marker-end="url(#ahb)"/>
+<rect x="790.0" y="188.0" width="90.0" height="62.0" rx="8" class="box"/>
+<text x="835.0" y="210.0" class="bt" text-anchor="middle" >PC</text>
+<text x="835.0" y="228.0" class="bs" text-anchor="middle" ></text>
+<path d="M760.0,219.0 L788.0,219.0" class="wire-hl" marker-end="url(#ahb)"/>
+<path d="M685,252 C685,300 175,300 175,254" class="wire" style="stroke-dasharray:5 4" marker-end="url(#ah)"/>
+<text x="430.0" y="322.0" class="sm halo" text-anchor="middle" >TCP 确认、网络栈释放页引用之后，内核才把块交回 DMA / 释放（deferred 队列）</text>
+<text x="24.0" y="362.0" class="sm halo" text-anchor="start" >关键点：CMA 放在低端内存（cma=128M@0-0x30000000），否则 GEM 没有 HIGHDMA 能力，</text>
+<text x="24.0" y="380.0" class="sm halo" text-anchor="start" >GSO 分段时会把高端内存的页再拷一遍；数据必须直达客户端 socket，经回环代理会被 TCP 合并拷贝。</text>
+</svg>

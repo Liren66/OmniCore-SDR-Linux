@@ -1,0 +1,305 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * OmniCore SDR: Zynq-7020 (xc7z020clg400-2) + AD9361 + CH32H417 USB3 bridge.
+ *
+ * Addresses and interrupts come from OmniCore-SDR-Firmware system.hdf:
+ *   axi_uart16550_0   0x43C00000  IRQ_F2P[14] -> SPI 58  (CH32 USART1 command link)
+ *   CH32H417_IP_0     0x43C10000  IRQ_F2P[15] -> SPI 59  (UHSIF bridge, UIO)
+ *   BOARD_CTRL_AXI_0  0x43C20000  -                      (fan/RGB, UIO)
+ *   axi_ad9361        0x79020000  gps_pps IRQ_F2P[0] -> SPI 29
+ *   adc_dma           0x7C400000  IRQ_F2P[13] -> SPI 57
+ *   dac_dma           0x7C420000  IRQ_F2P[12] -> SPI 56
+ *
+ * The AD9361 node mirrors board_config.c default_init_param of the no-OS SDK.
+ * Ownership of the AD9361 is switched at runtime by omnicored: OCH/USB mode
+ * unbinds ad9361/cf_axi_adc/cf_axi_dds and binds spidev; libiio mode reverses it.
+ */
+/dts-v1/;
+#include "zynq-7000.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	model = "OmniCore SDR (Zynq-7020 + AD9361)";
+	compatible = "omnicore,sdr", "xlnx,zynq-7000";
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x00000000 0x40000000>;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		ethernet0 = &gem0;
+		serial0 = &uart0;
+		serial1 = &axi_uart;	/* -> /dev/ttyS1 */
+		mmc0 = &sdhci0;
+		spi0 = &qspi;
+		spi1 = &spi0;		/* AD9361 -> spi1.0 */
+	};
+
+	clocks {
+		ad9361_clkin: clock@0 {
+			compatible = "fixed-clock";
+			clock-frequency = <40000000>;
+			clock-output-names = "ad9361_ext_refclk";
+			#clock-cells = <0>;
+		};
+	};
+
+	fpga_axi: fpga-axi {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		axi_uart: serial@43c00000 {
+			compatible = "ns16550a";
+			reg = <0x43c00000 0x10000>;
+			reg-offset = <0x1000>;
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			clock-frequency = <100000000>;
+			current-speed = <3125000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 58 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		ch32_bridge: uio@43c10000 {
+			compatible = "generic-uio";
+			linux,uio-name = "ch32h417";
+			reg = <0x43c10000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		board_ctrl: uio@43c20000 {
+			compatible = "generic-uio";
+			linux,uio-name = "board_ctrl";
+			reg = <0x43c20000 0x10000>;
+		};
+
+		/* gps_pps_irq of axi_ad9361; registers belong to the ADC core below. */
+		pps_irq: pps-uio {
+			compatible = "generic-uio";
+			linux,uio-name = "pps";
+			interrupt-parent = <&intc>;
+			interrupts = <0 29 IRQ_TYPE_EDGE_RISING>;
+		};
+
+		rx_dma: dma@7c400000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c400000 0x1000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		tx_dma: dma@7c420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x7c420000 0x1000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		cf_ad9361_adc_core_0: cf-ad9361-lpc@79020000 {
+			compatible = "adi,axi-ad9361-6.00.a";
+			reg = <0x79020000 0x6000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_ad9361>;
+		};
+
+		cf_ad9361_dac_core_0: cf-ad9361-dds-core-lpc@79024000 {
+			compatible = "adi,axi-ad9361-dds-6.00.a";
+			reg = <0x79024000 0x1000>;
+			clocks = <&adc0_ad9361 13>;
+			clock-names = "sampl_clk";
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&gem0 {
+	status = "okay";
+	/* RTL8211FD-CG on MDIO MIO52/53. RXD/RXCTL/RXCLK straps are pulled up, i.e.
+	 * the PHY adds the TX and RX delays; PHYRSTB is tied to PS_POR#. The address
+	 * is found by scanning the MDIO bus (no PHY child node). */
+	phy-mode = "rgmii-id";
+};
+
+&sdhci0 {
+	status = "okay";
+	disable-wp;
+	non-removable;	/* TF socket DETECT is not connected */
+	no-1-8-v;
+	/* 1V8 MIO -> TXS0108 level shifter -> card: keep the clock conservative. */
+	max-frequency = <25000000>;
+};
+
+&qspi {
+	status = "okay";
+	is-dual = <0>;
+	num-cs = <1>;
+
+	flash@0 {
+		compatible = "jedec,spi-nor";	/* W25Q256 */
+		reg = <0>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <50000000>;
+	};
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	num-cs = <1>;
+	is-decoded-cs = <0>;
+
+	adc0_ad9361: ad9361-phy@0 {
+		compatible = "adi,ad9361";
+		reg = <0>;
+		spi-cpha;
+		spi-max-frequency = <5000000>;
+		clocks = <&ad9361_clkin>;
+		clock-names = "ad9361_ext_refclk";
+		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		/* AD9361 RESETB = EMIO GPIO[0] (54) AND FCLK_RESET0_N; 0 = in reset. */
+		reset-gpios = <&gpio0 54 0>;
+
+		adi,digital-interface-tune-skip-mode = <0>;
+		adi,pp-tx-swap-enable;
+		adi,pp-rx-swap-enable;
+		adi,rx-frame-pulse-mode-enable;
+		adi,lvds-mode-enable;
+		adi,lvds-bias-mV = <150>;
+		adi,lvds-rx-onchip-termination-enable;
+		adi,rx-data-delay = <4>;
+		adi,tx-fb-clock-delay = <7>;
+		/* Board specific LVDS P/N swaps (board_config.c). */
+		adi,lvds-invert1-control = <0xFF>;
+		adi,lvds-invert2-control = <0x0F>;
+		adi,dcxo-coarse-and-fine-tune = <8 5920>;
+		adi,2rx-2tx-mode-enable;
+		adi,frequency-division-duplex-mode-enable;
+		adi,rx-rf-port-input-select = <0>;
+		adi,tx-rf-port-input-select = <0>;
+		/* Start muted; libiio clients set hardwaregain explicitly. */
+		adi,tx-attenuation-mdB = <89750>;
+		adi,tx-lo-powerdown-managed-enable;
+		adi,rf-rx-bandwidth-hz = <18000000>;
+		adi,rf-tx-bandwidth-hz = <18000000>;
+		adi,rx-synthesizer-frequency-hz = /bits/ 64 <1000000000>;
+		adi,tx-synthesizer-frequency-hz = /bits/ 64 <1000000000>;
+		adi,rx-path-clock-frequencies = <983040000 245760000 122880000 61440000 30720000 30720000>;
+		adi,tx-path-clock-frequencies = <983040000 122880000 122880000 61440000 30720000 30720000>;
+
+		adi,gc-rx1-mode = <2>;
+		adi,gc-rx2-mode = <2>;
+		adi,gc-adc-ovr-sample-size = <4>;
+		adi,gc-adc-small-overload-thresh = <47>;
+		adi,gc-adc-large-overload-thresh = <58>;
+		adi,gc-lmt-overload-high-thresh = <800>;
+		adi,gc-lmt-overload-low-thresh = <704>;
+		adi,gc-dec-pow-measurement-duration = <8192>;
+		adi,gc-low-power-thresh = <24>;
+		adi,mgc-inc-gain-step = <2>;
+		adi,mgc-dec-gain-step = <2>;
+		adi,mgc-split-table-ctrl-inp-gain-mode = <0>;
+		adi,agc-attack-delay-extra-margin-us = <1>;
+		adi,agc-outer-thresh-high = <5>;
+		adi,agc-outer-thresh-high-dec-steps = <2>;
+		adi,agc-inner-thresh-high = <10>;
+		adi,agc-inner-thresh-high-dec-steps = <1>;
+		adi,agc-inner-thresh-low = <12>;
+		adi,agc-inner-thresh-low-inc-steps = <1>;
+		adi,agc-outer-thresh-low = <18>;
+		adi,agc-outer-thresh-low-inc-steps = <2>;
+		adi,agc-adc-small-overload-exceed-counter = <10>;
+		adi,agc-adc-large-overload-exceed-counter = <10>;
+		adi,agc-adc-large-overload-inc-steps = <2>;
+		adi,agc-lmt-overload-large-exceed-counter = <10>;
+		adi,agc-lmt-overload-small-exceed-counter = <10>;
+		adi,agc-lmt-overload-large-inc-steps = <2>;
+		adi,agc-gain-update-interval-us = <1000>;
+		adi,fagc-dec-pow-measurement-duration = <64>;
+		adi,fagc-lp-thresh-increment-steps = <1>;
+		adi,fagc-lp-thresh-increment-time = <5>;
+		adi,fagc-energy-lost-stronger-sig-gain-lock-exit-cnt = <8>;
+		adi,fagc-final-overrange-count = <3>;
+		adi,fagc-gain-index-type-after-exit-rx-mode = <0>;
+		adi,fagc-lmt-final-settling-steps = <1>;
+		adi,fagc-lock-level = <10>;
+		adi,fagc-lock-level-gain-increase-upper-limit = <5>;
+		adi,fagc-lock-level-lmt-gain-increase-enable;
+		adi,fagc-lpf-final-settling-steps = <1>;
+		adi,fagc-optimized-gain-offset = <5>;
+		adi,fagc-power-measurement-duration-in-state5 = <64>;
+		adi,fagc-rst-gla-engergy-lost-goto-optim-gain-enable;
+		adi,fagc-rst-gla-engergy-lost-sig-thresh-below-ll = <10>;
+		adi,fagc-rst-gla-engergy-lost-sig-thresh-exceeded-enable;
+		adi,fagc-rst-gla-if-en-agc-pulled-high-mode = <0>;
+		adi,fagc-rst-gla-large-adc-overload-enable;
+		adi,fagc-rst-gla-large-lmt-overload-enable;
+		adi,fagc-rst-gla-stronger-sig-thresh-above-ll = <10>;
+		adi,fagc-rst-gla-stronger-sig-thresh-exceeded-enable;
+		adi,fagc-state-wait-time-ns = <260>;
+		adi,fagc-use-last-lock-level-for-set-gain-enable;
+		adi,rssi-restart-mode = <3>;
+		adi,rssi-delay = <1>;
+		adi,rssi-wait = <1>;
+		adi,rssi-duration = <1000>;
+		adi,ctrl-outs-index = <0>;
+		adi,ctrl-outs-enable-mask = <0xFF>;
+		adi,temp-sense-measurement-interval-ms = <1000>;
+		adi,temp-sense-offset-signed = <0xCE>;
+		adi,temp-sense-periodic-measurement-enable;
+		adi,aux-dac-manual-mode-enable;
+		adi,aux-dac1-default-value-mV = <0>;
+		adi,aux-dac1-rx-delay-us = <0>;
+		adi,aux-dac1-tx-delay-us = <0>;
+		adi,aux-dac2-default-value-mV = <0>;
+		adi,aux-dac2-rx-delay-us = <0>;
+		adi,aux-dac2-tx-delay-us = <0>;
+	};
+};

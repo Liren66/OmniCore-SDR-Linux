@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="280" viewBox="0 0 760 280" role="img">
+<title>4 通道 libiio 读流时的 CPU 负载</title><desc>Grouped bars. Copy path (1.1.0 way, 63 MB/s): CPU1 (iiod) 84 percent, CPU0 (Ethernet softirq) 42 percent. Zero-copy (1.2.0, 85 MB/s): CPU1 18 percent, CPU0 74 percent.</desc>
+
+<style>
+  svg { --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+        --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#0ca30c; --crit:#d03b3b;
+        --box:#f3f2ee; --box-line:#c3c2b7; --hl:#e6f0fc; --hl-line:#2a78d6; --warm:#fdeee6; --warm-line:#eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+          --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#0ca30c; --crit:#d03b3b;
+          --box:#242422; --box-line:#4a4a46; --hl:#1b2a3d; --hl-line:#3987e5; --warm:#3a2419; --warm-line:#d95926; }
+  }
+  text { font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: var(--ink); }
+  .t { font-size: 17px; font-weight: 600; }
+  .st { font-size: 12.5px; fill: var(--ink2); }
+  .lb { font-size: 13px; fill: var(--ink2); }
+  .sm { font-size: 11.5px; fill: var(--muted); }
+  .v { font-size: 12.5px; font-weight: 600; fill: var(--ink); font-variant-numeric: tabular-nums; }
+  .tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+  .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .box { fill: var(--box); stroke: var(--box-line); stroke-width: 1; }
+  .hl { fill: var(--hl); stroke: var(--hl-line); stroke-width: 1.5; }
+  .warm { fill: var(--warm); stroke: var(--warm-line); stroke-width: 1.5; }
+  .bt { font-size: 13px; font-weight: 600; }
+  .bs { font-size: 11.5px; fill: var(--ink2); }
+  .wire { stroke: var(--ink2); stroke-width: 1.5; fill: none; }
+  .wire-hl { stroke: var(--s1); stroke-width: 2.5; fill: none; }
+  .wire-w { stroke: var(--s2); stroke-width: 2.5; fill: none; }
+</style>
+
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink2)"/></marker><marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s1)"/></marker><marker id="ahw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s2)"/></marker></defs>
+<rect width="100%" height="100%" rx="10" style="fill:var(--surface)"/>
+<text x="24.0" y="34.0" class="t" text-anchor="start" >读流时两个核的负载（iiod 绑在 CPU1）</text>
+<text x="24.0" y="54.0" class="st" text-anchor="start" >拷贝方式 63 MB/s 时 CPU1 已经跑满；零拷贝 85 MB/s 时 CPU1 只剩 18%，瓶颈转到网卡中断和链路</text>
+<rect x="24.0" y="74.0" width="12" height="12" rx="3" style="fill:var(--s1)"/>
+<text x="42.0" y="84.0" class="lb" text-anchor="start" >拷贝（write，1.1.0 方式）</text>
+<rect x="235.1" y="74.0" width="12" height="12" rx="3" style="fill:var(--s2)"/>
+<text x="253.1" y="84.0" class="lb" text-anchor="start" >零拷贝（vmsplice+splice，1.2.0）</text>
+<line x1="190.0" y1="102.0" x2="190.0" y2="238.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="190.0" y="254.0" class="tick" text-anchor="middle" >0</text>
+<line x1="292.0" y1="102.0" x2="292.0" y2="238.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="292.0" y="254.0" class="tick" text-anchor="middle" >20</text>
+<line x1="394.0" y1="102.0" x2="394.0" y2="238.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="394.0" y="254.0" class="tick" text-anchor="middle" >40</text>
+<line x1="496.0" y1="102.0" x2="496.0" y2="238.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="496.0" y="254.0" class="tick" text-anchor="middle" >60</text>
+<line x1="598.0" y1="102.0" x2="598.0" y2="238.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="598.0" y="254.0" class="tick" text-anchor="middle" >80</text>
+<line x1="700.0" y1="102.0" x2="700.0" y2="238.0" style="stroke:var(--grid);stroke-width:1"/>
+<text x="700.0" y="254.0" class="tick" text-anchor="middle" >100 %</text>
+<line x1="190.0" y1="102.0" x2="190.0" y2="238.0" style="stroke:var(--axis);stroke-width:1"/>
+<text x="178.0" y="130.0" class="bt" text-anchor="end" >CPU1</text>
+<text x="178.0" y="148.0" class="bs" text-anchor="end" >iiod 搬数据</text>
+<path d="M190.0,112.0 H614.4 a4.0,4.0 0 0 1 4.0,4.0 V130.0 a4.0,4.0 0 0 1 -4.0,4.0 H190.0 Z" style="fill:var(--s1)"/>
+<text x="624.4" y="128.0" class="v halo" text-anchor="start" >84%</text>
+<path d="M190.0,136.0 H277.8 a4.0,4.0 0 0 1 4.0,4.0 V154.0 a4.0,4.0 0 0 1 -4.0,4.0 H190.0 Z" style="fill:var(--s2)"/>
+<text x="287.8" y="152.0" class="v halo" text-anchor="start" >18%</text>
+<text x="178.0" y="194.0" class="bt" text-anchor="end" >CPU0</text>
+<text x="178.0" y="212.0" class="bs" text-anchor="end" >网卡中断 softirq</text>
+<path d="M190.0,176.0 H400.2 a4.0,4.0 0 0 1 4.0,4.0 V194.0 a4.0,4.0 0 0 1 -4.0,4.0 H190.0 Z" style="fill:var(--s1)"/>
+<text x="410.2" y="192.0" class="v halo" text-anchor="start" >42%</text>
+<path d="M190.0,200.0 H563.4 a4.0,4.0 0 0 1 4.0,4.0 V218.0 a4.0,4.0 0 0 1 -4.0,4.0 H190.0 Z" style="fill:var(--s2)"/>
+<text x="573.4" y="216.0" class="v halo" text-anchor="start" >74%</text>
+</svg>

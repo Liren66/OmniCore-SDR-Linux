@@ -1,0 +1,14 @@
+[Unit]
+Description=Bring eth0 up early (PHY autonegotiation runs while the system boots)
+# The RTL8211F needs about 4 s to autonegotiate. Without this the link only
+# starts when dhcpcd comes up after basic.target.
+DefaultDependencies=no
+BindsTo=sys-subsystem-net-devices-eth0.device
+After=sys-subsystem-net-devices-eth0.device
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/ip link set eth0 up
+
+[Install]
+WantedBy=sys-subsystem-net-devices-eth0.device

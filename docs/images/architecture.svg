@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="470" viewBox="0 0 900 470" role="img">
+<title>OmniCore SDR Linux 架构</title><desc>OCH host connects over USB3 to the CH32H417 bridge; commands reach omnicored through the PL UART, samples flow through the CH32H417 IP. libiio clients connect over Ethernet to omnicored, which forks one patched iiod per connection; iiod streams AD9361 DMA blocks to the socket without copies. omnicored arbitrates the AD9361.</desc>
+
+<style>
+  svg { --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+        --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#0ca30c; --crit:#d03b3b;
+        --box:#f3f2ee; --box-line:#c3c2b7; --hl:#e6f0fc; --hl-line:#2a78d6; --warm:#fdeee6; --warm-line:#eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+          --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#0ca30c; --crit:#d03b3b;
+          --box:#242422; --box-line:#4a4a46; --hl:#1b2a3d; --hl-line:#3987e5; --warm:#3a2419; --warm-line:#d95926; }
+  }
+  text { font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: var(--ink); }
+  .t { font-size: 17px; font-weight: 600; }
+  .st { font-size: 12.5px; fill: var(--ink2); }
+  .lb { font-size: 13px; fill: var(--ink2); }
+  .sm { font-size: 11.5px; fill: var(--muted); }
+  .v { font-size: 12.5px; font-weight: 600; fill: var(--ink); font-variant-numeric: tabular-nums; }
+  .tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+  .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .box { fill: var(--box); stroke: var(--box-line); stroke-width: 1; }
+  .hl { fill: var(--hl); stroke: var(--hl-line); stroke-width: 1.5; }
+  .warm { fill: var(--warm); stroke: var(--warm-line); stroke-width: 1.5; }
+  .bt { font-size: 13px; font-weight: 600; }
+  .bs { font-size: 11.5px; fill: var(--ink2); }
+  .wire { stroke: var(--ink2); stroke-width: 1.5; fill: none; }
+  .wire-hl { stroke: var(--s1); stroke-width: 2.5; fill: none; }
+  .wire-w { stroke: var(--s2); stroke-width: 2.5; fill: none; }
+</style>
+
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink2)"/></marker><marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s1)"/></marker><marker id="ahw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s2)"/></marker></defs>
+<rect width="100%" height="100%" rx="10" style="fill:var(--surface)"/>
+<text x="24.0" y="34.0" class="t" text-anchor="start" >系统架构</text>
+<text x="24.0" y="54.0" class="st" text-anchor="start" >同一块 AD9361：USB 模式归 OCH（SDK 原样运行在用户态），IIO 模式归内核驱动 + libiio；omnicored 负责仲裁，OCH 优先</text>
+<rect x="24.0" y="86.0" width="170.0" height="70.0" rx="8" class="box"/>
+<text x="109.0" y="108.0" class="bt" text-anchor="middle" >OCH 主机</text>
+<text x="109.0" y="126.0" class="bs" text-anchor="middle" >och CLI / SDK 命令协议</text>
+<rect x="24.0" y="318.0" width="170.0" height="70.0" rx="8" class="box"/>
+<text x="109.0" y="340.0" class="bt" text-anchor="middle" >libiio 客户端</text>
+<text x="109.0" y="358.0" class="bs" text-anchor="middle" >iio_readdev / GNU Radio …</text>
+<rect x="236" y="74" width="640" height="370" rx="12" style="fill:none;stroke:var(--box-line);stroke-dasharray:5 4"/>
+<text x="252.0" y="96.0" class="sm halo" text-anchor="start" >Zynq-7020（PS：Linux 6.1 + Debian 12）  /  PL：原厂 bitstream，不改动</text>
+<rect x="260.0" y="110.0" width="170.0" height="70.0" rx="8" class="box"/>
+<text x="345.0" y="132.0" class="bt" text-anchor="middle" >CH32H417</text>
+<text x="345.0" y="150.0" class="bs" text-anchor="middle" >USB3 桥（板上）</text>
+<rect x="470.0" y="110.0" width="200.0" height="84.0" rx="8" class="hl"/>
+<text x="570.0" y="132.0" class="bt" text-anchor="middle" >omnicored</text>
+<text x="570.0" y="150.0" class="bs" text-anchor="middle" >裸机 SDK 命令代码</text>
+<text x="570.0" y="166.0" class="bs" text-anchor="middle" >spidev · /dev/mem · UIO</text>
+<rect x="700.0" y="110.0" width="156.0" height="70.0" rx="8" class="box"/>
+<text x="778.0" y="132.0" class="bt" text-anchor="middle" >AD9361</text>
+<text x="778.0" y="150.0" class="bs" text-anchor="middle" >RF 收发器</text>
+<rect x="260.0" y="230.0" width="170.0" height="70.0" rx="8" class="box"/>
+<text x="345.0" y="252.0" class="bt" text-anchor="middle" >CH32H417 IP（PL）</text>
+<text x="345.0" y="270.0" class="bs" text-anchor="middle" >USB 样点通路</text>
+<rect x="700.0" y="230.0" width="156.0" height="70.0" rx="8" class="box"/>
+<text x="778.0" y="252.0" class="bt" text-anchor="middle" >AXI AD9361 接口</text>
+<text x="778.0" y="270.0" class="bs" text-anchor="middle" >ADC/DAC 数据 + DMA</text>
+<rect x="470.0" y="318.0" width="200.0" height="84.0" rx="8" class="warm"/>
+<text x="570.0" y="340.0" class="bt" text-anchor="middle" >iiod -i（每个连接一个）</text>
+<text x="570.0" y="358.0" class="bs" text-anchor="middle" >vmsplice + splice</text>
+<text x="570.0" y="374.0" class="bs" text-anchor="middle" >DMA 块零拷贝发往 socket</text>
+<rect x="700.0" y="340.0" width="156.0" height="70.0" rx="8" class="box"/>
+<text x="778.0" y="362.0" class="bt" text-anchor="middle" >内核驱动</text>
+<text x="778.0" y="380.0" class="bs" text-anchor="middle" >ad9361 · IIO buffer-dma</text>
+<path d="M194.0,121.0 L258.0,121.0" class="wire" marker-end="url(#ah)"/>
+<text x="226.0" y="114.0" class="sm halo" text-anchor="middle" >USB3</text>
+<path d="M430.0,132.0 L468.0,132.0" class="wire" marker-end="url(#ah)"/>
+<text x="449.0" y="125.0" class="sm halo" text-anchor="middle" >UART</text>
+<path d="M670.0,140.0 L698.0,140.0" class="wire" marker-end="url(#ah)"/>
+<text x="684.0" y="160.0" class="sm halo" text-anchor="middle" >SPI</text>
+<path d="M345.0,180.0 L345.0,228.0" class="wire" marker-end="url(#ah)"/>
+<text x="352.0" y="208.0" class="sm halo" text-anchor="start" >样点</text>
+<path d="M778.0,180.0 L778.0,228.0" class="wire" marker-end="url(#ah)"/>
+<path d="M698.0,265.0 L432.0,265.0" class="wire" marker-end="url(#ah)"/>
+<text x="500.0" y="258.0" class="sm halo" text-anchor="middle" >USB 模式数据</text>
+<path d="M194.0,353.0 L468.0,353.0" class="wire" marker-end="url(#ah)"/>
+<text x="330.0" y="346.0" class="sm halo" text-anchor="middle" >以太网 :30431</text>
+<path d="M610.0,194.0 L610.0,316.0" class="wire" marker-end="url(#ah)"/>
+<text x="618.0" y="300.0" class="sm halo" text-anchor="start" >accept → fork</text>
+<path d="M778.0,300.0 L778.0,338.0" class="wire" marker-end="url(#ah)"/>
+<path d="M698.0,372.0 L672.0,372.0" class="wire-w" marker-end="url(#ahw)"/>
+<text x="24.0" y="430.0" class="sm halo" text-anchor="start" >USB 模式：SCHED_FIFO 50 跑在 CPU1，CH32/UART/SPI/PPS 中断也在 CPU1</text>
+<text x="24.0" y="450.0" class="sm halo" text-anchor="start" >IIO 模式：每个 libiio 连接 = 一个 iiod 进程，同样在 CPU1；网卡中断在 CPU0</text>
+</svg>

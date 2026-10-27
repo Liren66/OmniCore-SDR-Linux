@@ -1,0 +1,262 @@
+iio: buffer-dma: let userspace send DMA blocks to sockets without copying
+
+Map the blocks with vm_insert_page() instead of remapping their PFNs. The
+mapping keeps the dma_mmap_coherent() attributes, but the pages can now be
+passed to the network stack with vmsplice() + splice(), which is what the
+OmniCore iiod does (patches/iiod), so a block is never copied by the CPU on
+its way to the Ethernet.
+
+The stack holds page references until the data has been acknowledged (and
+for retransmissions). Mapping and unmapping change refcount and mapcount
+together, so any other reference means the pages are still in use:
+ - an enqueued block whose pages are busy waits on a per-queue deferred list
+   (polled every jiffy) before it goes back to the DMA;
+ - a block whose last reference is dropped while its pages are busy is freed
+   later (polled every 100 ms), never back to CMA under the stack's feet.
+
+Without vmsplice() users nothing changes: pages are never busy.
+
+diff --git a/drivers/iio/buffer/industrialio-buffer-dma.c b/drivers/iio/buffer/industrialio-buffer-dma.c
+index c1c4ca579..a9a361ffb 100644
+--- a/drivers/iio/buffer/industrialio-buffer-dma.c
++++ b/drivers/iio/buffer/industrialio-buffer-dma.c
+@@ -16,6 +16,8 @@
+ #include <linux/iio/iio.h>
+ #include <linux/iio/buffer-dma.h>
+ #include <linux/dma-mapping.h>
++#include <linux/dma-map-ops.h>
++#include <linux/vmalloc.h>
+ #include <linux/sizes.h>
+ 
+ /*
+@@ -94,6 +96,30 @@
+ static unsigned int iio_dma_buffer_max_block_size = SZ_16M;
+ module_param_named(max_block_size, iio_dma_buffer_max_block_size, uint, 0644);
+ 
++/*
++ * Block pages are mapped to userspace with vm_insert_page(), so iiod can pass
++ * them to a socket with vmsplice() + splice() instead of copying them. The
++ * network stack then keeps page references until the data has been
++ * acknowledged, and the block must neither be refilled by the DMA nor freed
++ * before they are gone. Mapping and unmapping change the refcount and the
++ * mapcount together, so any other reference shows up here.
++ */
++static bool iio_dma_buffer_block_busy(struct iio_dma_buffer_block *block)
++{
++	unsigned int i, n = PAGE_ALIGN(block->block.size) >> PAGE_SHIFT;
++
++	for (i = 0; i < n; i++) {
++		struct page *page = nth_page(block->pages, i);
++
++		if (page_count(page) != block->page_ref_base + page_mapcount(page))
++			return true;
++	}
++
++	return false;
++}
++
++static void iio_dma_buffer_defer_release(struct iio_dma_buffer_block *block);
++
+ static void iio_buffer_block_release(struct kref *kref)
+ {
+ 	struct iio_dma_buffer_block *block = container_of(kref,
+@@ -101,6 +127,11 @@ static void iio_buffer_block_release(struct kref *kref)
+ 
+ 	WARN_ON(block->state != IIO_BLOCK_STATE_DEAD);
+ 
++	if (iio_dma_buffer_block_busy(block)) {
++		iio_dma_buffer_defer_release(block);
++		return;
++	}
++
+ 	dma_free_coherent(block->queue->dev, PAGE_ALIGN(block->block.size),
+ 					block->vaddr, block->phys_addr);
+ 
+@@ -125,6 +156,10 @@ static void iio_buffer_block_put(struct iio_dma_buffer_block *block)
+ static LIST_HEAD(iio_dma_buffer_dead_blocks);
+ static DEFINE_SPINLOCK(iio_dma_buffer_dead_blocks_lock);
+ 
++static void iio_dma_buffer_cleanup_worker(struct work_struct *work);
++static DECLARE_DELAYED_WORK(iio_dma_buffer_cleanup_work,
++			    iio_dma_buffer_cleanup_worker);
++
+ static void iio_dma_buffer_cleanup_worker(struct work_struct *work)
+ {
+ 	struct iio_dma_buffer_block *block, *_block;
+@@ -137,7 +172,18 @@ static void iio_dma_buffer_cleanup_worker(struct work_struct *work)
+ 	list_for_each_entry_safe(block, _block, &block_list, head)
+ 		iio_buffer_block_release(&block->kref);
+ }
+-static DECLARE_WORK(iio_dma_buffer_cleanup_work, iio_dma_buffer_cleanup_worker);
++
++/* Free the block once the network stack has let go of its pages. */
++static void iio_dma_buffer_defer_release(struct iio_dma_buffer_block *block)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&iio_dma_buffer_dead_blocks_lock, flags);
++	list_add_tail(&block->head, &iio_dma_buffer_dead_blocks);
++	spin_unlock_irqrestore(&iio_dma_buffer_dead_blocks_lock, flags);
++
++	schedule_delayed_work(&iio_dma_buffer_cleanup_work, HZ / 10);
++}
+ 
+ static void iio_buffer_block_release_atomic(struct kref *kref)
+ {
+@@ -150,7 +196,7 @@ static void iio_buffer_block_release_atomic(struct kref *kref)
+ 	list_add_tail(&block->head, &iio_dma_buffer_dead_blocks);
+ 	spin_unlock_irqrestore(&iio_dma_buffer_dead_blocks_lock, flags);
+ 
+-	schedule_work(&iio_dma_buffer_cleanup_work);
++	schedule_delayed_work(&iio_dma_buffer_cleanup_work, 0);
+ }
+ 
+ /*
+@@ -182,6 +228,10 @@ static struct iio_dma_buffer_block *iio_dma_buffer_alloc_block(
+ 		return NULL;
+ 	}
+ 
++	block->pages = is_vmalloc_addr(block->vaddr) ?
++		vmalloc_to_page(block->vaddr) : virt_to_page(block->vaddr);
++	block->page_ref_base = page_count(block->pages);
++
+ 	block->block.size = size;
+ 	block->state = IIO_BLOCK_STATE_DEQUEUED;
+ 	block->queue = queue;
+@@ -304,6 +354,13 @@ static void iio_dma_buffer_submit_block(struct iio_dma_buffer_queue *queue,
+ 	if (!queue->ops)
+ 		return;
+ 
++	if (iio_dma_buffer_block_busy(block)) {
++		block->state = IIO_BLOCK_STATE_QUEUED;
++		list_add_tail(&block->head, &queue->deferred);
++		schedule_delayed_work(&queue->deferred_work, 1);
++		return;
++	}
++
+ 	block->state = IIO_BLOCK_STATE_ACTIVE;
+ 	iio_buffer_block_get(block);
+ 	ret = queue->ops->submit(queue, block);
+@@ -322,6 +379,27 @@ static void iio_dma_buffer_submit_block(struct iio_dma_buffer_queue *queue,
+ 	}
+ }
+ 
++static void iio_dma_buffer_deferred_worker(struct work_struct *work)
++{
++	struct iio_dma_buffer_queue *queue = container_of(to_delayed_work(work),
++		struct iio_dma_buffer_queue, deferred_work);
++	struct iio_dma_buffer_block *block, *_block;
++
++	mutex_lock(&queue->lock);
++	list_for_each_entry_safe(block, _block, &queue->deferred, head) {
++		if (queue->active && iio_dma_buffer_block_busy(block))
++			continue;
++		list_del(&block->head);
++		if (queue->active)
++			iio_dma_buffer_submit_block(queue, block);
++		else
++			list_add_tail(&block->head, &queue->incoming);
++	}
++	if (!list_empty(&queue->deferred))
++		schedule_delayed_work(&queue->deferred_work, 1);
++	mutex_unlock(&queue->lock);
++}
++
+ /**
+  * iio_dma_buffer_enable() - Enable DMA buffer
+  * @buffer: IIO buffer to enable
+@@ -654,6 +732,7 @@ int iio_dma_buffer_free_blocks(struct iio_buffer *buffer)
+ 	spin_lock_irq(&queue->list_lock);
+ 	INIT_LIST_HEAD(&queue->incoming);
+ 	INIT_LIST_HEAD(&queue->outgoing);
++	INIT_LIST_HEAD(&queue->deferred);
+ 
+ 	for (i = 0; i < queue->num_blocks; i++)
+ 		queue->blocks[i]->state = IIO_BLOCK_STATE_DEAD;
+@@ -805,13 +884,26 @@ int iio_dma_buffer_mmap(struct iio_buffer *buffer,
+ 	vma->vm_pgoff = 0;
+ 
+ 	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
++	vma->vm_page_prot = dma_pgprot(queue->dev, vma->vm_page_prot, 0);
++
++	/*
++	 * Same attributes as dma_mmap_coherent(), but inserting the pages
++	 * instead of remapping the PFNs lets userspace vmsplice() them (see
++	 * iio_dma_buffer_block_busy()).
++	 */
++	for (i = 0; i < (vma->vm_end - vma->vm_start) >> PAGE_SHIFT; i++) {
++		int ret = vm_insert_page(vma, vma->vm_start + i * PAGE_SIZE,
++					 nth_page(block->pages, i));
++		if (ret)
++			return ret;
++	}
++
+ 	vma->vm_ops = &iio_dma_buffer_vm_ops;
+ 	vma->vm_private_data = block;
+ 
+ 	vma->vm_ops->open(vma);
+ 
+-	return dma_mmap_coherent(queue->dev, vma, block->vaddr,
+-		block->phys_addr, vma->vm_end - vma->vm_start);
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(iio_dma_buffer_mmap);
+ 
+@@ -875,6 +967,8 @@ int iio_dma_buffer_init(struct iio_dma_buffer_queue *queue,
+ 
+ 	INIT_LIST_HEAD(&queue->incoming);
+ 	INIT_LIST_HEAD(&queue->outgoing);
++	INIT_LIST_HEAD(&queue->deferred);
++	INIT_DELAYED_WORK(&queue->deferred_work, iio_dma_buffer_deferred_worker);
+ 
+ 	mutex_init(&queue->lock);
+ 	spin_lock_init(&queue->list_lock);
+@@ -897,6 +991,7 @@ EXPORT_SYMBOL_GPL(iio_dma_buffer_init);
+  */
+ void iio_dma_buffer_exit(struct iio_dma_buffer_queue *queue)
+ {
++	cancel_delayed_work_sync(&queue->deferred_work);
+ 	mutex_lock(&queue->lock);
+ 	queue->ops = NULL;
+ 	mutex_unlock(&queue->lock);
+@@ -913,6 +1008,7 @@ EXPORT_SYMBOL_GPL(iio_dma_buffer_exit);
+  */
+ void iio_dma_buffer_release(struct iio_dma_buffer_queue *queue)
+ {
++	cancel_delayed_work_sync(&queue->deferred_work);
+ 	mutex_destroy(&queue->lock);
+ }
+ EXPORT_SYMBOL_GPL(iio_dma_buffer_release);
+diff --git a/include/linux/iio/buffer-dma.h b/include/linux/iio/buffer-dma.h
+index 1f27eebd5..939c29bd4 100644
+--- a/include/linux/iio/buffer-dma.h
++++ b/include/linux/iio/buffer-dma.h
+@@ -10,6 +10,7 @@
+ #include <linux/list.h>
+ #include <linux/kref.h>
+ #include <linux/spinlock.h>
++#include <linux/workqueue.h>
+ #include <linux/mutex.h>
+ #include <linux/iio/buffer_impl.h>
+ 
+@@ -56,6 +57,10 @@ struct iio_dma_buffer_block {
+ 	void *vaddr;
+ 	dma_addr_t phys_addr;
+ 	struct iio_dma_buffer_queue *queue;
++	/* First page of the (physically contiguous) block */
++	struct page *pages;
++	/* Page refcount of an idle, unmapped block page */
++	unsigned int page_ref_base;
+ 
+ 	/* Must not be accessed outside the core. */
+ 	struct kref kref;
+@@ -105,6 +110,9 @@ struct iio_dma_buffer_queue {
+ 	spinlock_t list_lock;
+ 	struct list_head incoming;
+ 	struct list_head outgoing;
++	/* Enqueued blocks whose pages the network stack still references */
++	struct list_head deferred;
++	struct delayed_work deferred_work;
+ 
+ 	bool active;
+ 

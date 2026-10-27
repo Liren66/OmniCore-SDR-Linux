@@ -1,0 +1,297 @@
+iiod: zero-copy sends of IIO DMA blocks; usable per connection with -i
+
+ - When the buffer data lies in an mmapped IIO block (high-speed local
+   backend) and the client is a socket, send it with vmsplice() + splice()
+   instead of write(): no CPU copy (needs patches/linux 0001, which keeps a
+   block away from the DMA until the network stack releases its pages; on
+   other kernels vmsplice() fails and iiod falls back to write()).
+   splice() raises SIGPIPE on a closed socket, and iiod's handler would stop
+   the whole server, so it is blocked and discarded around the send.
+ - "iiod -i" with sockets as stdin/stdout (omnicored starts one per
+   connection) uses the socket code paths. Before, the byte-wise non-socket
+   read_line() looped forever at end of stream instead of exiting.
+ - With one iiod per connection, a second client opening a device that
+   another iiod streams from must fail without touching it: libiio disables
+   the buffer through sysfs before it finds the device node busy. Check the
+   node first and answer EBUSY.
+
+diff --git a/iiod/iiod.c b/iiod/iiod.c
+index 3478126..0d40b34 100644
+--- a/iiod/iiod.c
++++ b/iiod/iiod.c
+@@ -28,6 +28,7 @@
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <unistd.h>
++#include <sys/stat.h>
+ #if WITH_ZSTD
+ #include <zstd.h>
+ #endif
+@@ -131,6 +132,13 @@ static void sig_handler(int sig)
+ 	thread_pool_stop(main_thread_pool);
+ }
+ 
++static bool fd_is_socket(int fd)
++{
++	struct stat st;
++
++	return !fstat(fd, &st) && S_ISSOCK(st.st_mode);
++}
++
+ static int main_interactive(struct iio_context *ctx, bool verbose, bool use_aio,
+ 			    const void *xml_zstd, size_t xml_zstd_len)
+ {
+@@ -158,8 +166,13 @@ static int main_interactive(struct iio_context *ctx, bool verbose, bool use_aio,
+ 		}
+ 	}
+ 
++	/*
++	 * Started per client with the connection as stdin/stdout (omnicored):
++	 * use the socket paths, which end at EOF and allow zero-copy sends.
++	 */
+ 	interpreter(ctx, STDIN_FILENO, STDOUT_FILENO, verbose,
+-			false, false, use_aio, main_thread_pool,
++			fd_is_socket(STDIN_FILENO) && fd_is_socket(STDOUT_FILENO),
++			false, use_aio, main_thread_pool,
+ 			xml_zstd, xml_zstd_len);
+ 	return EXIT_SUCCESS;
+ }
+diff --git a/iiod/ops.c b/iiod/ops.c
+index 4184872..ec199b9 100644
+--- a/iiod/ops.c
++++ b/iiod/ops.c
+@@ -21,6 +21,10 @@
+ #include <time.h>
+ #include <fcntl.h>
+ #include <signal.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <sys/stat.h>
++#include <sys/uio.h>
+ 
+ int yyparse(yyscan_t scanner);
+ 
+@@ -436,6 +440,136 @@ static ssize_t receive_sample(const struct iio_channel *chn,
+ 	return read_all(info->pdata, dst, length);
+ }
+ 
++/*
++ * True if [ptr, ptr + len) lies in an mmap of an IIO buffer block (high-speed
++ * local backend). Only such memory may be handed to a socket by reference: the
++ * kernel keeps a block away from the DMA until the network stack has released
++ * its pages. Other buffers are reused as soon as send_data() returns.
++ */
++static bool is_iio_block(const void *ptr, size_t len)
++{
++	uintptr_t start = (uintptr_t) ptr, end = start + len;
++	bool found = false;
++	char line[512];
++	FILE *f;
++
++	f = fopen("/proc/self/maps", "re");
++	if (!f)
++		return false;
++
++	while (!found && fgets(line, sizeof(line), f)) {
++		unsigned long lo, hi;
++		int path = 0;
++
++		if (sscanf(line, "%lx-%lx %*s %*s %*s %*s %n", &lo, &hi, &path) == 2
++		    && path && start >= lo && end <= hi)
++			found = !strncmp(line + path, "/dev/iio:", 9);
++	}
++
++	fclose(f);
++	return found;
++}
++
++static void zc_pipe_close(struct parser_pdata *pdata)
++{
++	if (pdata->zc_pipe[0] >= 0) {
++		close(pdata->zc_pipe[0]);
++		close(pdata->zc_pipe[1]);
++		pdata->zc_pipe[0] = pdata->zc_pipe[1] = -1;
++	}
++}
++
++/*
++ * Send an mmapped IIO block without copying it: vmsplice() its pages into a
++ * pipe, then splice() the pipe into the socket. Returns -ENOTSUP when the
++ * kernel can't do it (pages not insertable, nothing sent yet), so the caller
++ * falls back to write_all().
++ */
++static ssize_t splice_all_unsafe(struct parser_pdata *pdata, const void *src, size_t len)
++{
++	uintptr_t ptr = (uintptr_t) src;
++	struct pollfd pfd[2];
++	ssize_t ret;
++
++	if (pdata->zc_pipe[0] < 0) {
++		if (pipe2(pdata->zc_pipe, O_CLOEXEC | O_NONBLOCK))
++			return -ENOTSUP;
++		fcntl(pdata->zc_pipe[1], F_SETPIPE_SZ, 1 << 20);
++	}
++
++	pfd[0].fd = pdata->fd_out;
++	pfd[0].events = POLLOUT;
++	pfd[1].fd = thread_pool_get_poll_fd(pdata->pool);
++	pfd[1].events = POLLIN;
++
++	while (len) {
++		struct iovec iov = { (void *) ptr, len };
++		ssize_t in = vmsplice(pdata->zc_pipe[1], &iov, 1, 0);
++
++		if (in < 0) {
++			ret = (ptr == (uintptr_t) src) ? -ENOTSUP : -errno;
++			goto err;
++		}
++		ptr += in;
++		len -= in;
++
++		while (in) {
++			pfd[0].revents = pfd[1].revents = 0;
++			poll_nointr(pfd, 2);
++
++			/* Got STOP event, or client closed the socket: EOF */
++			if (pfd[1].revents & POLLIN || pfd[0].revents & POLLHUP) {
++				ret = 0;
++				goto err;
++			}
++			if (pfd[0].revents & POLLERR) {
++				ret = -EIO;
++				goto err;
++			}
++			if (!(pfd[0].revents & POLLOUT))
++				continue;
++
++			ret = splice(pdata->zc_pipe[0], NULL, pdata->fd_out, NULL, in,
++				     SPLICE_F_MOVE | SPLICE_F_NONBLOCK |
++				     (len ? SPLICE_F_MORE : 0));
++			if (ret < 0) {
++				if (errno == EAGAIN || errno == EINTR)
++					continue;
++				ret = -errno;
++				goto err;
++			}
++			in -= ret;
++		}
++	}
++
++	return ptr - (uintptr_t) src;
++
++err:
++	/* Drop whatever is left in the pipe, it references the block. */
++	zc_pipe_close(pdata);
++	return ret;
++}
++
++/*
++ * Unlike send(MSG_NOSIGNAL), splice() into a closed socket raises SIGPIPE, and
++ * iiod's handler would stop the whole server: block it and discard it here.
++ */
++static ssize_t splice_all(struct parser_pdata *pdata, const void *src, size_t len)
++{
++	struct timespec zero = { 0, 0 };
++	sigset_t set, old;
++	ssize_t ret;
++
++	sigemptyset(&set);
++	sigaddset(&set, SIGPIPE);
++	pthread_sigmask(SIG_BLOCK, &set, &old);
++	ret = splice_all_unsafe(pdata, src, len);
++	if (ret == -EPIPE)
++		while (sigtimedwait(&set, NULL, &zero) == SIGPIPE);
++	pthread_sigmask(SIG_SETMASK, &old, NULL);
++	return ret;
++}
++
+ static ssize_t send_data(struct DevEntry *dev, struct ThdEntry *thd, size_t len)
+ {
+ 	struct parser_pdata *pdata = thd->pdata;
+@@ -481,6 +615,12 @@ static ssize_t send_data(struct DevEntry *dev, struct ThdEntry *thd, size_t len)
+ 	if (!demux) {
+ 		/* Short path */
+ 		start = iio_buffer_start(dev->buf);
++		if (pdata->fd_out_is_socket && is_iio_block(start, len)) {
++			ssize_t ret = splice_all(pdata, start, len);
++
++			if (ret != -ENOTSUP)
++				return ret;
++		}
+ 		return write_all(pdata, start, len);
+ 	} else {
+ 		struct sample_cb_info info = {
+@@ -554,6 +694,26 @@ static void signal_thread(struct ThdEntry *thd, ssize_t ret)
+ 	thd_entry_event_signal(thd);
+ }
+ 
++/*
++ * Only one process can have a device node open. libiio disables the device's
++ * buffer through sysfs before it finds the node busy, which would stop the
++ * iiod (omnicored runs one per connection) that is streaming from it.
++ */
++static bool dev_node_busy(const struct iio_device *dev)
++{
++	char path[64];
++	int fd;
++
++	snprintf(path, sizeof(path), "/dev/%s", iio_device_get_id(dev));
++	fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++	if (fd >= 0) {
++		close(fd);
++		return false;
++	}
++
++	return errno == EBUSY;
++}
++
+ static void rw_thd(struct thread_pool *pool, void *d)
+ {
+ 	struct DevEntry *entry = d;
+@@ -606,8 +766,13 @@ static void rw_thd(struct thread_pool *pool, void *d)
+ 					iio_channel_disable(chn);
+ 			}
+ 
+-			entry->buf = iio_device_create_buffer(dev,
+-					samples_count, entry->cyclic);
++			if (dev_node_busy(dev)) {
++				entry->buf = NULL;
++				errno = EBUSY;
++			} else {
++				entry->buf = iio_device_create_buffer(dev,
++						samples_count, entry->cyclic);
++			}
+ 			if (!entry->buf) {
+ 				ret = -errno;
+ 				IIO_ERROR("Unable to create buffer\n");
+@@ -1492,6 +1657,7 @@ void interpreter(struct iio_context *ctx, int fd_in, int fd_out, bool verbose,
+ 	pdata.fd_in_is_socket = is_socket;
+ 	pdata.fd_out_is_socket = is_socket;
+ 	pdata.is_usb = is_usb;
++	pdata.zc_pipe[0] = pdata.zc_pipe[1] = -1;
+ 
+ 	SLIST_INIT(&pdata.thdlist_head);
+ 
+@@ -1539,6 +1705,8 @@ void interpreter(struct iio_context *ctx, int fd_in, int fd_out, bool verbose,
+ 	for (i = 0; i < iio_context_get_devices_count(ctx); i++)
+ 		close_dev_helper(&pdata, iio_context_get_device(ctx, i));
+ 
++	zc_pipe_close(&pdata);
++
+ #if WITH_AIO
+ 	if (use_aio) {
+ 		io_destroy(pdata.aio_ctx);
+diff --git a/iiod/ops.h b/iiod/ops.h
+index add7437..c51255f 100644
+--- a/iiod/ops.h
++++ b/iiod/ops.h
+@@ -74,6 +74,9 @@ struct parser_pdata {
+ #endif
+ 	struct thread_pool *pool;
+ 
++	/* Pipe for zero-copy sends of mmapped IIO blocks, -1 until needed */
++	int zc_pipe[2];
++
+ 	const void *xml_zstd;
+ 	size_t xml_zstd_len;
+ 

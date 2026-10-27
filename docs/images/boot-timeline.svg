@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="210" viewBox="0 0 760 210" role="img">
+<title>软重启后各服务可用时间（1.2.0）</title><desc>Timeline from the reboot command: OCH ready 16.7 s, ping 34.0 s, SSH 34.7 s, libiio 40.7 s.</desc>
+
+<style>
+  svg { --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7;
+        --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#0ca30c; --crit:#d03b3b;
+        --box:#f3f2ee; --box-line:#c3c2b7; --hl:#e6f0fc; --hl-line:#2a78d6; --warm:#fdeee6; --warm-line:#eb6834; }
+  @media (prefers-color-scheme: dark) {
+    svg { --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --axis:#383835;
+          --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#0ca30c; --crit:#d03b3b;
+          --box:#242422; --box-line:#4a4a46; --hl:#1b2a3d; --hl-line:#3987e5; --warm:#3a2419; --warm-line:#d95926; }
+  }
+  text { font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif; fill: var(--ink); }
+  .t { font-size: 17px; font-weight: 600; }
+  .st { font-size: 12.5px; fill: var(--ink2); }
+  .lb { font-size: 13px; fill: var(--ink2); }
+  .sm { font-size: 11.5px; fill: var(--muted); }
+  .v { font-size: 12.5px; font-weight: 600; fill: var(--ink); font-variant-numeric: tabular-nums; }
+  .tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+  .halo { paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+  .box { fill: var(--box); stroke: var(--box-line); stroke-width: 1; }
+  .hl { fill: var(--hl); stroke: var(--hl-line); stroke-width: 1.5; }
+  .warm { fill: var(--warm); stroke: var(--warm-line); stroke-width: 1.5; }
+  .bt { font-size: 13px; font-weight: 600; }
+  .bs { font-size: 11.5px; fill: var(--ink2); }
+  .wire { stroke: var(--ink2); stroke-width: 1.5; fill: none; }
+  .wire-hl { stroke: var(--s1); stroke-width: 2.5; fill: none; }
+  .wire-w { stroke: var(--s2); stroke-width: 2.5; fill: none; }
+</style>
+
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--ink2)"/></marker><marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s1)"/></marker><marker id="ahw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--s2)"/></marker></defs>
+<rect width="100%" height="100%" rx="10" style="fill:var(--surface)"/>
+<text x="24.0" y="34.0" class="t" text-anchor="start" >重启到可用（从发出 reboot 计时，1.2.0 整卡实测）</text>
+<text x="24.0" y="54.0" class="st" text-anchor="start" >OCH（USB3）不等网络，16.7 s 就能用；以太网要等 DHCP 超时后回落到 192.168.2.1</text>
+<line x1="40.0" y1="80" x2="40.0" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="40.0" y="168.0" class="tick" text-anchor="middle" >0</text>
+<line x1="115.6" y1="80" x2="115.6" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="115.6" y="168.0" class="tick" text-anchor="middle" >5</text>
+<line x1="191.1" y1="80" x2="191.1" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="191.1" y="168.0" class="tick" text-anchor="middle" >10</text>
+<line x1="266.7" y1="80" x2="266.7" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="266.7" y="168.0" class="tick" text-anchor="middle" >15</text>
+<line x1="342.2" y1="80" x2="342.2" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="342.2" y="168.0" class="tick" text-anchor="middle" >20</text>
+<line x1="417.8" y1="80" x2="417.8" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="417.8" y="168.0" class="tick" text-anchor="middle" >25</text>
+<line x1="493.3" y1="80" x2="493.3" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="493.3" y="168.0" class="tick" text-anchor="middle" >30</text>
+<line x1="568.9" y1="80" x2="568.9" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="568.9" y="168.0" class="tick" text-anchor="middle" >35</text>
+<line x1="644.4" y1="80" x2="644.4" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="644.4" y="168.0" class="tick" text-anchor="middle" >40</text>
+<line x1="720.0" y1="80" x2="720.0" y2="150" style="stroke:var(--grid);stroke-width:1"/>
+<text x="720.0" y="168.0" class="tick" text-anchor="middle" >45 s</text>
+<line x1="40" y1="150" x2="720" y2="150" style="stroke:var(--axis);stroke-width:1.5"/>
+<line x1="292.4" y1="110" x2="292.4" y2="150" style="stroke:var(--s1);stroke-width:2"/>
+<circle cx="292.4" cy="150" r="5" style="fill:var(--s1);stroke:var(--surface);stroke-width:2"/>
+<text x="298.4" y="114.0" class="v halo" text-anchor="start" >OCH 可用 16.7 s</text>
+<line x1="553.8" y1="88" x2="553.8" y2="150" style="stroke:var(--s1);stroke-width:2"/>
+<circle cx="553.8" cy="150" r="5" style="fill:var(--s1);stroke:var(--surface);stroke-width:2"/>
+<text x="547.8" y="92.0" class="v halo" text-anchor="end" >ping 通 34.0 s</text>
+<line x1="564.4" y1="88" x2="564.4" y2="150" style="stroke:var(--s1);stroke-width:2"/>
+<circle cx="564.4" cy="150" r="5" style="fill:var(--s1);stroke:var(--surface);stroke-width:2"/>
+<text x="570.4" y="92.0" class="v halo" text-anchor="start" >SSH 34.7 s</text>
+<line x1="655.0" y1="110" x2="655.0" y2="150" style="stroke:var(--s1);stroke-width:2"/>
+<circle cx="655.0" cy="150" r="5" style="fill:var(--s1);stroke:var(--surface);stroke-width:2"/>
+<text x="661.0" y="114.0" class="v halo" text-anchor="start" >libiio 40.7 s</text>
+<text x="40.0" y="192.0" class="sm halo" text-anchor="start" >首次启动另加约 16 s：扩展 rootfs 到整卡、生成 SSH 主机密钥和固定 MAC（OCH 不受影响，内核时间 8.6 s 可用）</text>
+</svg>
