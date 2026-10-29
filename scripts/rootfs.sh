@@ -72,8 +72,11 @@ install -D -m 0755 "$BUILD/omnicored/omnicored" "$R/usr/sbin/omnicored"
 install -D -m 0755 "$BUILD/iiod/iiod" "$R/usr/local/sbin/iiod"
 # Up to 1.1: iiod as a localhost service behind omnicored's proxy (gone from the overlay).
 rm -f "$R/etc/systemd/system/omnicore-iiod.service"
-cp -a "$W/rootfs-overlay/." "$R/"
+# Overlay files belong to the target administrator, not the host checkout UID.
+# In particular, sudo rejects an include directory owned by the build user.
+tar -C "$W/rootfs-overlay" --owner=0 --group=0 -cf - . | tar -C "$R" -xpf -
 chmod 0755 "$R/usr/local/sbin/"* 2>/dev/null || true
+chmod 0440 "$R/etc/sudoers.d/omnicore"
 
 echo omnicore-sdr > "$R/etc/hostname"
 "$W/scripts/version-files.sh" "$R"
@@ -99,11 +102,21 @@ in_target sh -c '
     set -e
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
     locale-gen >/dev/null
-    echo "root:root" | chpasswd
     if id analog >/dev/null 2>&1; then userdel -r analog 2>/dev/null || userdel analog; fi
-    id OmniCore-SDR >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo,dialout OmniCore-SDR ||
-        useradd --badname -m -s /bin/bash -G sudo,dialout OmniCore-SDR
-    echo "OmniCore-SDR:root" | chpasswd
+    if id OmniCore-SDR >/dev/null 2>&1; then userdel -r OmniCore-SDR; fi
+    # Keep the root system identity for Debian package/service compatibility,
+    # but allow interactive access only through OmniCore (also UID/GID 0).
+    if ! id OmniCore >/dev/null 2>&1; then
+        useradd -o -u 0 -g 0 -d /root -M -s /bin/bash OmniCore
+    fi
+    test "$(id -u OmniCore)" = 0
+    usermod -d /root -s /bin/bash OmniCore
+    echo "OmniCore:root" | chpasswd
+    usermod -p "!" -s /usr/sbin/nologin root
+    # Make UID 0 resolve to OmniCore in whoami, shell prompts and file listings.
+    { sed -n "/^OmniCore:/p" /etc/passwd; sed "/^OmniCore:/d" /etc/passwd; } > /etc/passwd.omnicore
+    chmod 0644 /etc/passwd.omnicore
+    mv /etc/passwd.omnicore /etc/passwd
     sed -i -e "s/^#\?Port .*/Port 22/" -e "s/^#\?PermitRootLogin.*/PermitRootLogin yes/" \
         -e "s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
     grep -q "^Port 22" /etc/ssh/sshd_config || echo "Port 22" >> /etc/ssh/sshd_config

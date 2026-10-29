@@ -2,9 +2,9 @@
 
 **OmniCore SDR（Zynq-7020 + AD9361 + CH32H417 USB3）的 Linux 系统**：把原来的裸机 SDK 命令固件原样搬到 Linux 用户态运行，USB3/OCH 的使用方式与裸机完全一致，同时多出一条以太网 libiio 通路，可以直接接 IIO Oscilloscope、GNU Radio、pyadi-iio、MATLAB 等 ADI 生态工具。
 
-- 当前版本 **1.2.1**（2026-10-29），对应固件 [OmniCore-SDR-Firmware](https://github.com/Liren66/OmniCore-SDR-Firmware) `c288940`（`SDK_CMD_1.0_20261026_VCXO`），bitstream **不改动**。
+- 当前版本 **1.2.2**（2026-10-29），对应固件 [OmniCore-SDR-Firmware](https://github.com/Liren66/OmniCore-SDR-Firmware) `c288940`（`SDK_CMD_1.0_20261026_VCXO`），bitstream **不改动**。
 - 一条命令（Docker）编出整卡镜像：U-Boot 2024.01 + ADI Linux 2023_R2（6.1）+ Debian 12 armhf。
-- 1.2.0 已完成实板刷卡验证；1.2.1 已完成镜像检查和 ARM SSH 服务验证，测试结果见下文和 [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)。
+- 1.2.0 已完成实板刷卡验证；1.2.2 已完成镜像检查和 ARM SSH 账号登录验证，测试结果见下文和 [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)。
 
 ![系统架构](docs/images/architecture.svg)
 
@@ -94,11 +94,11 @@
 
 ### 1. 刷卡
 
-现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.2.1-sd.img.xz`（78 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
+现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.2.2-sd.img.xz`（78 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
 
 ```bash
-sha256sum -c omnicore-sdr-1.2.1-sd.img.xz.sha256
-xz -dc omnicore-sdr-1.2.1-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
+sha256sum -c omnicore-sdr-1.2.2-sd.img.xz.sha256
+xz -dc omnicore-sdr-1.2.2-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
 ```
 
 Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先解压。自己编译的镜像在 `out/omnicore-sdr-sd.img`。
@@ -121,9 +121,11 @@ Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先�
 
 | 方式 | 说明 |
 |---|---|
-| SSH | `ssh root@192.168.2.1`（或 `root@omnicore-sdr.local`），端口 22，允许密码登录 |
+| SSH | `ssh OmniCore@192.168.2.1`（或 `OmniCore@omnicore-sdr.local`），端口 22，允许密码登录 |
 | 串口控制台 | UART0（MIO14/15，经 FT2232 B 通道，与 JTAG 共用 Type-C），115200 8N1 |
-| 账号 | `root` / `root`；`OmniCore-SDR` / `root`（sudo 组） |
+| 账号 | `OmniCore` / `root`（用户名区分大小写，UID 0，直接拥有管理员权限） |
+
+仅 `OmniCore` 可登录，主目录为 `/root`；旧的 `OmniCore-SDR` 用户已移除。系统内部保留锁定且无登录 shell 的 `root` 记录以兼容 Debian，不能使用 `root` 登录。登录后 `whoami` 显示 `OmniCore`，`id -u` 为 `0`，无需 sudo 即可管理系统。
 
 > **请尽快修改默认密码**（`passwd`），或者放入公钥后关闭密码登录（`/etc/ssh/sshd_config` 的 `PasswordAuthentication no`）。
 
@@ -279,6 +281,7 @@ docs/                      测试结果、图片（docs/images/make_figures.py �
 
 | 版本 | 内容 |
 |---|---|
+| 1.2.2 | 统一登录账号为 `OmniCore` / `root`（UID 0）；关闭旧 root 登录并移除旧普通用户；保留开机和 SSH 标识 |
 | 1.2.1 | 开机、串口登录和 SSH 连接显示与 OCH 相同的 OmniCore SDR ASCII 标识；统一标识源文件 `configs/banner.txt` |
 | 1.2.0 | libiio 零拷贝（内核 + iiod 补丁，每个连接一个 iiod，低端内存 CMA），libiio 吞吐 58 → 80 MB/s；单路 RX 可连续 20 MSPS |
 | 1.1.0 | OCH 优先抢占；EBUSY 拒绝；USB 模式实时调度和中断绑定；splice 代理；启动提速（OCH 24.7 → 16.6 s）；掉电保护；精简内核；FIRMWARE_LOCK 与 bitstream 追溯 |

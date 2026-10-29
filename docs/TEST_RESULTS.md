@@ -7,6 +7,15 @@
 - 网线直连，板子地址 192.168.2.1。
 - 测试脚本见 [tests/](../tests/)。
 
+## 1.2.2 账号与镜像验证（2026-10-29）
+
+- 从 1.2.1 构建目录增量构建 `omnicored rootfs image`，并再次执行 `rootfs image`，确认账号迁移及重复构建均成功。
+- `tests/login.sh` 在临时 rootfs 副本中运行镜像同版本的 ARM OpenSSH：`OmniCore / root` 实际密码登录成功，`whoami` 为 `OmniCore`、UID 为 `0`、主目录为 `/root`，`sudo -n id -u` 返回 `0`。
+- `root`、旧普通账号 `OmniCore-SDR` 和小写 `omnicore` 的登录均被拒绝。系统内部的 `root` 记录仍为 UID 0，但密码锁定且 shell 为 nologin；唯一未锁定的登录账号为 `OmniCore`。
+- sudoers 语法和文件所有权检查通过；配置覆盖层统一使用目标 UID/GID 0，不继承构建机账号的文件所有权。
+- 最终镜像的分区表、ext4 文件系统、BOOT 脚本、账号/密码数据库、SSH/sudo 配置及版本文件检查通过。开机和 SSH 标识保持不变。
+- 本次未重新刷卡或执行实板启动、射频回归。
+
 ## 1.2.1 镜像构建与欢迎信息验证（2026-10-29）
 
 - 在远程 Linux 构建机完成 `omnicored rootfs image`；固件仍为 `c288940`，bitstream 仍为 `bit-0e8a3b5309e8`。

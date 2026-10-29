@@ -1,0 +1,3 @@
+# Keep sudo usable after disabling the root login shell.
+Defaults runas_default=OmniCore
+OmniCore ALL=(ALL:ALL) ALL

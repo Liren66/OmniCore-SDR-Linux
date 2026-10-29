@@ -55,4 +55,4 @@ for ($i = 1; $i -le $Rounds; $i++) {
          $i, $(if ($ok) { 'OK  ' } else { 'FAIL' }), $take, ($rb -eq "$lo"), $capBytes, $preRc, $preMs, $stOk, $bp)
 }
 Log "=== soak end: rounds failed=$fail/$Rounds"
-ssh root@$Board 'journalctl -u omnicored -b --no-pager -o cat' | Out-File (Join-Path $Out 'omnicored_journal.txt')
+ssh OmniCore@$Board 'journalctl -u omnicored -b --no-pager -o cat' | Out-File (Join-Path $Out 'omnicored_journal.txt')

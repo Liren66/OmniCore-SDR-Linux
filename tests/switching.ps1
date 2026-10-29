@@ -59,4 +59,4 @@ foreach ($ch in 'voltage0 voltage1', 'voltage0 voltage1 voltage2 voltage3') {
 }
 Stop-Job $hold; Remove-Job $hold -Force
 $res | ConvertTo-Json | Out-File (Join-Path $Out 'switching_results.json')
-ssh root@$Board 'journalctl -u omnicored -b --no-pager -o cat | tail -40' | Out-File (Join-Path $Out 'omnicored_journal.txt')
+ssh OmniCore@$Board 'journalctl -u omnicored -b --no-pager -o cat | tail -40' | Out-File (Join-Path $Out 'omnicored_journal.txt')

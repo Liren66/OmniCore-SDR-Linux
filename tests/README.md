@@ -5,7 +5,7 @@
 - OCH 主机工具 `och`（[OmniCore-SDR-Host](https://github.com/Liren66/OmniCore-SDR-Host)）在 PATH 里；
 - libiio 0.24 Windows 工具（`iio_attr`、`iio_readdev`、`iio_writedev`）在 PATH 里；
 - Python 3（只用标准库）；
-- 能免密 SSH 到 `root@192.168.2.1`（`boot_timing.ps1`、`switching.ps1`、`soak.ps1` 会读日志）。
+- 能免密 SSH 到 `OmniCore@192.168.2.1`（`boot_timing.ps1`、`switching.ps1`、`soak.ps1` 会读日志）。
 
 结果默认写到 `tests/results/`。所有测试 TX 衰减保持 89.75 dB；IIO TX 测试只用 AD9361 内部数字回环，不发射。
 
@@ -22,3 +22,12 @@
 `soak.ps1` 的 bench 判定沿用 OCH 的稳定性规则：推流开头的 RX overflow 必须在 1 s 内恢复。从 libiio 切回 USB 后立刻推流，偶尔会有一轮恢复超过 1 s 被判失败，这是已知的正常现象（见主 README 的“测试结果”）。
 
 脚本之间的约定：两次 libiio 操作的间隔不要超过 `grace_ms`（默认 5 s），否则板子会先切回 USB 模式，下一次操作又要重新接管。
+## 构建容器内的账号验证
+
+完成镜像构建后，在 Linux 构建机运行（主机需已注册 qemu-arm binfmt）：
+
+```bash
+docker run --rm --privileged -v "$PWD":/work omnicore-linux-builder bash tests/login.sh
+```
+
+`login.sh` 在临时 rootfs 副本中运行 ARM OpenSSH，验证 `OmniCore / root` 密码登录、UID 0、用户名、主目录、sudo 和欢迎标识，并确认 `root`、`OmniCore-SDR` 及小写 `omnicore` 被拒绝。测试密钥和登录状态不会写入待发布的 rootfs。
