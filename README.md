@@ -21,6 +21,7 @@
 - [注意事项](#注意事项)
 - [目录结构](#目录结构)
 - [版本历史](#版本历史)
+- [许可证](#许可证)
 
 ## 主要功能
 
@@ -276,6 +277,17 @@ rootfs-overlay/            systemd 单元、dhcpcd、avahi、omnicored.conf、�
 tests/                     板上测试脚本（PowerShell + Python，在 Windows PC 上运行）
 docs/                      测试结果、图片（docs/images/make_figures.py 生成）
 ```
+
+## 许可证
+
+本项目可由项目著作权人自主授权、且未另行注明许可的原创代码、脚本、配置和文档，采用
+**GNU General Public License v3.0 only（SPDX：`GPL-3.0-only`）**。
+完整协议见 [LICENSE](LICENSE)，组件适用范围见 [第三方与组件许可说明](THIRD_PARTY_NOTICES.md)。
+
+设备树保留原有 GPL v2 / GPL v2 或后续版本的声明；Linux 内核与 iiod 的补丁沿用对应上游许可。
+构建时引入的 U-Boot、ADI Linux、libiio、Debian 软件包，以及 Firmware 仓库中的 SDK、驱动和位流，
+均保留各自许可条件。本项目的 GPL-3.0 声明不替代这些条款，也不表示整卡镜像或组合后的
+`omnicored` 已统一采用 GPL-3.0 或完成全部依赖的许可兼容性确认。
 
 ## 版本历史
 
