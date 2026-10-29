@@ -15,10 +15,9 @@ rm -rf "$OUT/boot"
 mkdir -p "$OUT/boot"
 cp "$B/u-boot/spl/boot.bin" "$OUT/boot/BOOT.bin"
 cp "$B/u-boot/u-boot.img" "$OUT/boot/"
-mkimage -A arm -T script -C none -n "OmniCore boot" -d "$W/configs/boot.cmd" "$OUT/boot/boot.scr" >/dev/null
+bash "$W/scripts/make-boot-script.sh" "$OUT/boot" >/dev/null
 cp "$B/linux/arch/arm/boot/zImage" "$B/devicetree.dtb" "$OUT/boot/"
 cp "$HW/system_wrapper.bit" "$OUT/boot/system_top.bit"
-cp "$W/configs/boot.cmd" "$OUT/boot/"
 
 rm -f "$B/boot.vfat" "$B/rootfs.ext4"
 mkfs.vfat -F 32 -n BOOT -C "$B/boot.vfat" $((BOOT_MB * 1024)) >/dev/null

@@ -2,9 +2,9 @@
 
 **OmniCore SDR（Zynq-7020 + AD9361 + CH32H417 USB3）的 Linux 系统**：把原来的裸机 SDK 命令固件原样搬到 Linux 用户态运行，USB3/OCH 的使用方式与裸机完全一致，同时多出一条以太网 libiio 通路，可以直接接 IIO Oscilloscope、GNU Radio、pyadi-iio、MATLAB 等 ADI 生态工具。
 
-- 当前版本 **1.2.0**（2026-10-27），对应固件 [OmniCore-SDR-Firmware](https://github.com/Liren66/OmniCore-SDR-Firmware) `c288940`（`SDK_CMD_1.0_20261026_VCXO`），bitstream **不改动**。
+- 当前版本 **1.2.1**（2026-10-29），对应固件 [OmniCore-SDR-Firmware](https://github.com/Liren66/OmniCore-SDR-Firmware) `c288940`（`SDK_CMD_1.0_20261026_VCXO`），bitstream **不改动**。
 - 一条命令（Docker）编出整卡镜像：U-Boot 2024.01 + ADI Linux 2023_R2（6.1）+ Debian 12 armhf。
-- 已在实板上完成刷卡整卡验证，测试结果见下文和 [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)。
+- 1.2.0 已完成实板刷卡验证；1.2.1 已完成镜像检查和 ARM SSH 服务验证，测试结果见下文和 [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)。
 
 ![系统架构](docs/images/architecture.svg)
 
@@ -94,11 +94,11 @@
 
 ### 1. 刷卡
 
-现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.2.0-sd.img.xz`（78 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
+现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.2.1-sd.img.xz`（78 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
 
 ```bash
-sha256sum -c omnicore-sdr-1.2.0-sd.img.xz.sha256
-xz -dc omnicore-sdr-1.2.0-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
+sha256sum -c omnicore-sdr-1.2.1-sd.img.xz.sha256
+xz -dc omnicore-sdr-1.2.1-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
 ```
 
 Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先解压。自己编译的镜像在 `out/omnicore-sdr-sd.img`。
@@ -106,6 +106,8 @@ Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先�
 ### 2. 启动
 
 拨码开关 S3 控制 MIO4：拨到 3V3 一侧 = MIO[5:3]=110 = **SD 启动**；另一侧 = QSPI 启动（原裸机固件）。U-Boot 先 `fpga loadb` 加载 `system_top.bit`，再启动 Linux。
+
+启动串口会显示与 OCH 相同的 **OmniCore SDR** ASCII 标识，串口登录提示和 SSH 连接认证前也会显示。SSH 登录后仍保留版本、固件和内核信息。
 
 首次启动会多花约 16 s（扩展 rootfs、生成 SSH 主机密钥和固定 MAC），OCH 不受影响。
 
@@ -277,6 +279,7 @@ docs/                      测试结果、图片（docs/images/make_figures.py �
 
 | 版本 | 内容 |
 |---|---|
+| 1.2.1 | 开机、串口登录和 SSH 连接显示与 OCH 相同的 OmniCore SDR ASCII 标识；统一标识源文件 `configs/banner.txt` |
 | 1.2.0 | libiio 零拷贝（内核 + iiod 补丁，每个连接一个 iiod，低端内存 CMA），libiio 吞吐 58 → 80 MB/s；单路 RX 可连续 20 MSPS |
 | 1.1.0 | OCH 优先抢占；EBUSY 拒绝；USB 模式实时调度和中断绑定；splice 代理；启动提速（OCH 24.7 → 16.6 s）；掉电保护；精简内核；FIRMWARE_LOCK 与 bitstream 追溯 |
 | 1.0.0 | 首个版本：SDK 命令固件在 Linux 上运行，USB/OCH 与 libiio 共存 |

@@ -90,7 +90,7 @@ stage_uboot() {
     "$src/scripts/kconfig/merge_config.sh" -m -O "$o" "$o/.config" "$W/configs/uboot.fragment"
     make -C "$src" O="$o" olddefconfig
     make -C "$src" O="$o" -j"$JOBS" DEVICE_TREE=zynq-omnicore
-    mkimage -A arm -T script -C none -n "OmniCore boot" -d "$W/configs/boot.cmd" "$o/boot.scr"
+    bash "$W/scripts/make-boot-script.sh" "$o"
 }
 
 stage_kernel() {
