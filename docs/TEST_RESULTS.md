@@ -25,7 +25,20 @@
 | libiio 连续性 | 20 MSPS 单路 RX 1 GiB：0 断档 |
 | IIO TX 双音回环 | RX1 只在 +fs/32、RX2 只在 +fs/16，通过；`CH32H417_IP` 1.3 在 USB TX 关闭时仍把 ADI DMA 样点送往 DAC |
 
-未测：重启计时与 10 轮切换长测（需要 SSH 免密登录，新卡的主机密钥和授权密钥均为新生成）、多块板子实际组网同步。
+| 重启到可用（`boot_timing.ps1`） | OCH 16.4 s、ping 32.4 s、SSH 33.1 s、libiio 39.1 s；systemd 内核 3.26 s + 用户态 9.59 s；RF 初始化 1247 ms |
+| USB 60 s 全双工（`soak.ps1`） | 30.72 MSPS 12 bit：184.5 MB/s；61.44 MSPS 8 bit：245.9 MB/s；0 丢样、0 错误 |
+| 10 轮切换长测（`soak.ps1`） | 10/10 通过：接管 2.01–2.06 s，LO 回读正确，8 MiB IIO 采集，OCH 抢回 1.83–2.06 s，自检通过，5 s 全双工 bench 0 故障 |
+| 系统状态 | CMA 128 MiB 在 0x27c00000（低端内存）；无内核告警；无失败单元；测试后无残留 iiod |
+
+未测：多块板子实际组网同步。
+
+## 1.3.1 SSH 标识（2026-11-07）
+
+1.3.1 与 1.3.0 只差 SSH 标识和版本字符串：内核、设备树、U-Boot、位流与 omnicored 代码都相同，版本字符串随 `VERSION` 变化。
+
+- 认证前横幅改为一行 `OmniCore SDR  |  OmniCore-SDR Linux 1.3.1`。实测：Windows OpenSSH 客户端原样输出横幅中的 ANSI 转义；Linux / macOS 的 OpenSSH 会把控制字符转义成文本，所以认证前不加颜色。
+- 登录后 `/etc/motd` 以 `ESC[1;94m`（亮蓝）输出 OmniCore SDR 标识。把镜像中的 `/etc/motd`、`/etc/issue.net` 放到实板上，交互登录收到的原始字节包含 `ESC[1;94m` 和 `ESC[0m`，Windows Terminal 显示为蓝色。镜像中这两个文件的 md5 与实板测试所用文件一致（`e85a65bc…`、`ae0a215f…`）。
+- 镜像 sha256 `da05a4e45a4723dbd37c34244ff7df4e295106c76f9274cbf0b4159d34db1b62`；回环挂载检查 rootfs 中的版本文件和标识文件。整卡 1.3.1 未再刷卡，上表实板数据来自 1.3.0 卡。
 
 ## 1.2.2 账号与镜像验证（2026-10-29）
 

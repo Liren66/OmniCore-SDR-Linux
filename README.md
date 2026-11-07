@@ -2,7 +2,7 @@
 
 **OmniCore SDR（Zynq-7020 + AD9361 + CH32H417 USB3）的 Linux 系统**：把原来的裸机 SDK 命令固件原样搬到 Linux 用户态运行，USB3/OCH 的使用方式与裸机完全一致，同时多出一条以太网 libiio 通路，可以直接接 IIO Oscilloscope、GNU Radio、pyadi-iio、MATLAB 等 ADI 生态工具。
 
-- 当前版本 **1.3.0**（2026-11-07），对应固件 [OmniCore-SDR-Firmware v2026.11.07.2](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07.2)（`ce7921c`，`SDK_CMD_1.2_20261107_SYNC`；FPGA `CH32H417_IP` 1.3 + `OC_SYNC_AXI` 1.0），bitstream 与裸机固件相同。
+- 当前版本 **1.3.1**（2026-11-07），对应固件 [OmniCore-SDR-Firmware v2026.11.07.2](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07.2)（`ce7921c`，`SDK_CMD_1.2_20261107_SYNC`；FPGA `CH32H417_IP` 1.3 + `OC_SYNC_AXI` 1.0），bitstream 与裸机固件相同。
 - **USB 传输为成帧格式，需要 OmniCore Host 0.6.0 及以上；多板同步 `och sync` 需要 0.7.0。** 旧版 OCH（0.5.x 及以前）请继续使用 1.2.2 镜像。
 - 一条命令（Docker）编出整卡镜像：U-Boot 2024.01 + ADI Linux 2023_R2（6.1）+ Debian 12 armhf。
 - 1.3.0 已完成实板刷卡验证（USB3、硬件时间戳、多板同步单板回环、libiio 全部通过），测试结果见下文和 [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)。
@@ -80,7 +80,7 @@
 | **libiio 单路 RX 连续采样率** | **20 MSPS 稳定**（1.3.0：1 GiB 连续 0 断档；1.2.0：2 GiB）；21 MSPS 也能连续但已贴近上限；22 MSPS 跟不上（1.2.0） |
 | libiio 双路 RX 连续采样率 | 10 MSPS（0 断档） |
 | libiio 接管 / OCH 抢回 | 约 2.3 s / 1.4 s（1.2.0：2.0 s / 1.4–2.1 s） |
-| 重启到可用（1.2.0） | OCH 16.7 s，ping 34.0 s，SSH 34.7 s，libiio 40.7 s |
+| 重启到可用 | OCH 16.4 s，ping 32.4 s，SSH 33.1 s，libiio 39.1 s |
 
 ![吞吐](docs/images/throughput.svg)
 
@@ -97,11 +97,11 @@
 
 ### 1. 刷卡
 
-现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.3.0-sd.img.xz`（约 80 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
+现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.3.1-sd.img.xz`（约 80 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
 
 ```bash
-sha256sum -c omnicore-sdr-1.3.0-sd.img.xz.sha256
-xz -dc omnicore-sdr-1.3.0-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
+sha256sum -c omnicore-sdr-1.3.1-sd.img.xz.sha256
+xz -dc omnicore-sdr-1.3.1-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
 ```
 
 Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先解压。自己编译的镜像在 `out/omnicore-sdr-sd.img`。
@@ -110,7 +110,11 @@ Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先�
 
 拨码开关 S3 控制 MIO4：拨到 3V3 一侧 = MIO[5:3]=110 = **SD 启动**；另一侧 = QSPI 启动（原裸机固件）。U-Boot 先 `fpga loadb` 加载 `system_top.bit`，再启动 Linux。
 
-启动串口会显示与 OCH 相同的 **OmniCore SDR** ASCII 标识，串口登录提示和 SSH 连接认证前也会显示。SSH 登录后仍保留版本、固件和内核信息。
+启动串口会显示与 OCH 相同的 **OmniCore SDR** ASCII 标识，串口登录提示也会显示。SSH 连接认证前显示一行版本；登录后以**蓝色**显示 OmniCore SDR 标识，并附版本、固件和内核信息。
+
+> 认证前的 SSH 横幅不加颜色：Linux / macOS 的 OpenSSH 客户端会把其中的控制字符转义成 `\033[...` 文本。登录后的 `/etc/motd` 原样输出，所有客户端都能显示颜色。
+
+<p align="center"><img src="docs/images/ssh-login.png" width="640" alt="SSH 登录：认证前一行版本，登录后蓝色 OmniCore SDR 标识"></p>
 
 首次启动会多花约 16 s（扩展 rootfs、生成 SSH 主机密钥和固定 MAC），OCH 不受影响。重新刷卡后 SSH 主机密钥会变，PC 端需先删除旧记录（`ssh-keygen -R 192.168.2.1`）。
 
@@ -235,20 +239,22 @@ cd omnicore-linux
 
 ## 测试结果
 
-全部在实板上测得（PC：Windows 11，libiio 0.24），1.3.0 为刷卡后整卡验证（OCH 0.7.0），启动时间和长测数据来自 1.2.0（OCH 0.4.8）。详细数据、测试方法和历次结果见 **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)**，测试脚本在 [tests/](tests/)。
+全部在实板上测得（PC：Windows 11，libiio 0.24），1.3.0 为刷卡后整卡验证（OCH 0.7.0）；首次启动数据来自 1.2.0（OCH 0.4.8）。详细数据、测试方法和历次结果见 **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)**，测试脚本在 [tests/](tests/)。
 
 | 项目 | 结果 |
 |---|---|
 | 首次启动 | 通过：15.8 s 完成扩容/密钥/MAC，OCH 在内核时间 8.6 s 可用，无失败单元 |
-| 重启到可用 | OCH 16.7 s、ping 34.0 s、SSH 34.7 s、libiio 40.7 s |
+| 重启到可用 | OCH 16.4 s、ping 32.4 s、SSH 33.1 s、libiio 39.1 s |
 | USB 自检（RX PRBS / TX 回环） | 通过 |
-| USB 60 s 全双工 | 184.3 MB/s（30.72M 12 bit）/ 245.7 MB/s（61.44M 8 bit），0 丢样、0 错误 |
+| USB 60 s 全双工 | 184.5 MB/s（30.72M 12 bit）/ 245.9 MB/s（61.44M 8 bit），0 丢样、0 错误 |
+| USB3 吞吐上限（30 s） | 2T2R 12 bit 44、1T2R 58.5、2T1R 58、2RX 61.44、2T2R 8 bit 61.44 MSPS，0 故障（与裸机相同） |
+| 硬件时间戳 / 多板同步单板回环 | `hw_timestamp_test` 通过；`och sync --loopback --no-mcs` 时间装载与间隔精确 |
 | libiio 接管 / OCH 抢回 | 2.02–2.06 s / 1.38–2.03 s |
 | USB 推流时连 libiio | 拒绝，错误码 16（EBUSY），推流不受影响 |
 | libiio 吞吐 | 单路 RX 72–74 MB/s，双路 RX 75–81 MB/s |
 | 数据完整性（TX→RX 数字回环计数器，逐样点） | 0 错误 |
 | IIO TX 双音回环 | 通过 |
-| 10 轮切换长测（接管 → 采集 → OCH 抢回 → 自检 → USB 推流） | 10/10 通过 |
+| 10 轮切换长测（接管 → 采集 → OCH 抢回 → 自检 → USB 推流） | 10/10 通过（接管 2.01–2.06 s，OCH 抢回 1.83–2.06 s） |
 | 两个客户端同时读同一设备 | 后来的收到 EBUSY，先来的不受影响 |
 | 健壮性（中途杀客户端、反复建拆缓冲区） | 无内核告警，CMA 全部归还 |
 
@@ -298,6 +304,7 @@ docs/                      测试结果、图片（docs/images/make_figures.py �
 
 | 版本 | 内容 |
 |---|---|
+| 1.3.1 | SSH 登录后以蓝色显示 OmniCore SDR 标识；认证前横幅改为一行版本（兼容 Linux / macOS 客户端） |
 | 1.3.0 | 跟进固件 v2026.11.07.2：成帧 USB 传输、硬件时间戳、事件合并、多板同步（`OC_SYNC_AXI`）；设备树开启 AD9361 CLK_OUT（与 `board_config.c` 一致）；需要 OCH 0.6.0+ |
 | 1.2.2 | 统一登录账号为 `OmniCore` / `root`（UID 0）；关闭旧 root 登录并移除旧普通用户；保留开机和 SSH 标识 |
 | 1.2.1 | 开机、串口登录和 SSH 连接显示与 OCH 相同的 OmniCore SDR ASCII 标识；统一标识源文件 `configs/banner.txt` |

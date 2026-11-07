@@ -41,9 +41,16 @@ mv "$R/etc/os-release.new" "$R/etc/os-release"
 # agetty interprets backslash escapes in /etc/issue; SSH displays literal text.
 sed 's/\\/\\\\/g' "$W/configs/banner.txt" > "$R/etc/issue"
 printf '%s \\n \\l (kernel \\r)\n\n' "$NAME_VER" >> "$R/etc/issue"
-cat "$W/configs/banner.txt" > "$R/etc/issue.net"
-printf '  %s\n\n' "$NAME_VER" >> "$R/etc/issue.net"
-cat > "$R/etc/motd" <<END_MOTD
+# SSH: Linux/macOS OpenSSH clients escape control characters in the
+# pre-authentication banner, so it stays one plain line. The wordmark is
+# printed after login from /etc/motd (pam_motd, raw), in bright blue.
+printf '\n  OmniCore SDR  |  %s\n\n' "$NAME_VER" > "$R/etc/issue.net"
+{
+    printf '\033[1;94m'
+    cat "$W/configs/banner.txt"
+    printf '\033[0m'
+} > "$R/etc/motd"
+cat >> "$R/etc/motd" <<END_MOTD
 
 ${NAME_VER}  (build ${BUILD_DATE}, firmware ${FIRMWARE_REV}, ${FPGA_ID}, kernel ${KREL})
   USB3/OCH and libiio share the AD9361; 'journalctl -u omnicored' shows the owner.
