@@ -1,4 +1,4 @@
-/* Addresses from OmniCore-SDR-Firmware system.hdf (unchanged bitstream). */
+/* Addresses from OmniCore-SDR-Firmware system.hdf (FIRMWARE_LOCK). */
 #ifndef XPARAMETERS_H
 #define XPARAMETERS_H
 #include "xparameters_ps.h"
@@ -8,6 +8,9 @@
 #define XPAR_AXI_UART16550_0_CLOCK_FREQ_HZ 100000000UL
 #define XPAR_CH32H417_IP_0_S00_AXI_BASEADDR 0x43C10000U
 #define XPAR_BOARD_CTRL_AXI_0_BASEADDR 0x43C20000U
+/* Multi-board sync (firmware v2026.11.07.2, sdr_sync.c); no driver, /dev/mem. */
+#define XPAR_OC_SYNC_AXI_0_BASEADDR 0x43C30000U
+#define XPAR_OC_SYNC_AXI_0_HIGHADDR 0x43C3FFFFU
 #define XPAR_AXI_AD9361_BASEADDR 0x79020000U
 #define XPAR_AXI_AD9361_ADC_DMA_BASEADDR 0x7C400000U
 #define XPAR_AXI_AD9361_DAC_DMA_BASEADDR 0x7C420000U

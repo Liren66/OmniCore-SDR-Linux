@@ -2,9 +2,10 @@
 
 **OmniCore SDR（Zynq-7020 + AD9361 + CH32H417 USB3）的 Linux 系统**：把原来的裸机 SDK 命令固件原样搬到 Linux 用户态运行，USB3/OCH 的使用方式与裸机完全一致，同时多出一条以太网 libiio 通路，可以直接接 IIO Oscilloscope、GNU Radio、pyadi-iio、MATLAB 等 ADI 生态工具。
 
-- 当前版本 **1.2.2**（2026-10-29），对应固件 [OmniCore-SDR-Firmware](https://github.com/Liren66/OmniCore-SDR-Firmware) `c288940`（`SDK_CMD_1.0_20261026_VCXO`），bitstream **不改动**。
+- 当前版本 **1.3.0**（2026-11-07），对应固件 [OmniCore-SDR-Firmware v2026.11.07.2](https://github.com/Liren66/OmniCore-SDR-Firmware/releases/tag/v2026.11.07.2)（`ce7921c`，`SDK_CMD_1.2_20261107_SYNC`；FPGA `CH32H417_IP` 1.3 + `OC_SYNC_AXI` 1.0），bitstream 与裸机固件相同。
+- **USB 传输为成帧格式，需要 OmniCore Host 0.6.0 及以上；多板同步 `och sync` 需要 0.7.0。** 旧版 OCH（0.5.x 及以前）请继续使用 1.2.2 镜像。
 - 一条命令（Docker）编出整卡镜像：U-Boot 2024.01 + ADI Linux 2023_R2（6.1）+ Debian 12 armhf。
-- 1.2.0 已完成实板刷卡验证；1.2.2 已完成镜像检查和 ARM SSH 账号登录验证，测试结果见下文和 [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)。
+- 1.3.0 已完成实板刷卡验证（USB3、硬件时间戳、多板同步单板回环、libiio 全部通过），测试结果见下文和 [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)。
 
 ![系统架构](docs/images/architecture.svg)
 
@@ -27,10 +28,11 @@
 
 - **USB3 / OCH 与裸机一致**：omnicored 把 SDK 的 `console_commands/`、`platform_xilinx/`、no-OS AD9361 驱动和 CH32H417_IP 驱动**原样编译**，只替换 Xilinx BSP 头文件（`omnicored/shim/`）：
   `Xil_In32/Out32`→`/dev/mem`，`XSpiPs`→spidev，`XGpioPs`→GPIO 字符设备，`XScuGic`→UIO 中断，`XUartNs550`→8250 tty，`XAdcPs`→内核 xadc。OCH 命令协议、封装、EVT、溢出恢复都与裸机相同，`och` 主机工具无需任何修改。
+- **成帧传输、硬件时间戳与多板同步（1.3.0）**：与裸机固件 v2026.11.07.2 相同。每个 16 KiB USB 块带 16 字节头和 64 位样点时间；外部 / 内部 PPS 对时、定时 RX、定时 TX；多板同步（REF_OUT 菊花链共享 10 MHz、TRIG / AD9361_SYNC、AD9361 MCS、公共时间装载，或公共 10 MHz + PPS）。同步 IP `OC_SYNC_AXI` 由 omnicored 经 `/dev/mem` 访问，用法见 [固件文档](https://github.com/Liren66/OmniCore-SDR-Firmware/blob/main/docs/multi-board-sync.md)。
 - **以太网 libiio**：标准 ADI 内核驱动（ad9361 / cf_axi_adc / cf_axi_dds）+ iiod，端口 30431，mDNS 广播 `_iio._tcp`，主机名 `omnicore-sdr.local`。RX、TX（DDS DMA）都可用。
 - **同一颗 AD9361 自动仲裁**：上电默认 USB 模式；USB 空闲时 libiio 连接自动接管；任何 OCH 命令都能把 AD9361 收回来。
 - **整卡镜像**：SD 卡启动，首次启动自动把 rootfs 扩展到整卡、生成 SSH 主机密钥和固定 MAC。
-- **可追溯**：固件提交、bitstream sha256、构建日期写进 `/etc/omnicore-sdr-release`，`system_info?` 报告 `fpga=bit-<sha256 前 12 位>`。
+- **可追溯**：固件提交、bitstream sha256、构建日期写进 `/etc/omnicore-sdr-release`，`omnicored -V` 报告 `bitstream bit-<sha256 前 12 位>`；`system_info?` 与裸机一致，报告 `fpga=CH32H417_IP_0x01030001`。
 
 ## 特色功能
 
@@ -71,14 +73,14 @@
 
 ## 性能一览
 
-| 项目 | 1.2.0 实测 |
+| 项目 | 实测（1.3.0，另注明的为 1.2.0） |
 |---|---|
-| USB3 全双工（OCH bench，60 s） | 2×2 30.72 MSPS 12 bit：184.3 MB/s；2×2 61.44 MSPS 8 bit：245.7 MB/s；0 丢样、0 错误 |
-| libiio RX 吞吐（以太网） | 单路 RX（2 通道）72–74 MB/s；双路 RX（4 通道）79.5–81 MB/s |
-| **libiio 单路 RX 连续采样率** | **20 MSPS 稳定**（2 GiB 连续 0 断档）；21 MSPS 也能连续但已贴近上限；22 MSPS 跟不上 |
+| USB3（OCH bench，30 s，与裸机相同） | 2T2R 12 bit 44 MSPS、1T2R 58.5 MSPS、2T1R 58 MSPS、2RX 61.44 MSPS、2T2R 8 bit 61.44 MSPS；0 故障 |
+| libiio RX 吞吐（以太网） | 单路 RX（2 通道）72–78 MB/s；双路 RX（4 通道）89–101 MB/s |
+| **libiio 单路 RX 连续采样率** | **20 MSPS 稳定**（1.3.0：1 GiB 连续 0 断档；1.2.0：2 GiB）；21 MSPS 也能连续但已贴近上限；22 MSPS 跟不上（1.2.0） |
 | libiio 双路 RX 连续采样率 | 10 MSPS（0 断档） |
-| libiio 接管 / OCH 抢回 | 约 2.0 s / 1.4–2.1 s |
-| 重启到可用 | OCH 16.7 s，ping 34.0 s，SSH 34.7 s，libiio 40.7 s |
+| libiio 接管 / OCH 抢回 | 约 2.3 s / 1.4 s（1.2.0：2.0 s / 1.4–2.1 s） |
+| 重启到可用（1.2.0） | OCH 16.7 s，ping 34.0 s，SSH 34.7 s，libiio 40.7 s |
 
 ![吞吐](docs/images/throughput.svg)
 
@@ -95,11 +97,11 @@
 
 ### 1. 刷卡
 
-现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.2.2-sd.img.xz`（78 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
+现成镜像在 [Releases](../../releases) 里：`omnicore-sdr-1.3.0-sd.img.xz`（约 80 MB，解压后 865 MiB，首次启动自动扩展到整卡），≥ 2 GB 的 SD 卡即可。
 
 ```bash
-sha256sum -c omnicore-sdr-1.2.2-sd.img.xz.sha256
-xz -dc omnicore-sdr-1.2.2-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
+sha256sum -c omnicore-sdr-1.3.0-sd.img.xz.sha256
+xz -dc omnicore-sdr-1.3.0-sd.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress
 ```
 
 Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先解压。自己编译的镜像在 `out/omnicore-sdr-sd.img`。
@@ -110,7 +112,7 @@ Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先�
 
 启动串口会显示与 OCH 相同的 **OmniCore SDR** ASCII 标识，串口登录提示和 SSH 连接认证前也会显示。SSH 登录后仍保留版本、固件和内核信息。
 
-首次启动会多花约 16 s（扩展 rootfs、生成 SSH 主机密钥和固定 MAC），OCH 不受影响。
+首次启动会多花约 16 s（扩展 rootfs、生成 SSH 主机密钥和固定 MAC），OCH 不受影响。重新刷卡后 SSH 主机密钥会变，PC 端需先删除旧记录（`ssh-keygen -R 192.168.2.1`）。
 
 ### 3. 网络
 
@@ -136,14 +138,17 @@ Windows 用 balenaEtcher 或 Rufus 直接选 `.img.xz` 写入即可，不用先�
 
 ### OCH（USB3）
 
-与裸机固件完全相同，例如：
+与裸机固件完全相同（需要 OCH 0.6.0 及以上），例如：
 
 ```bash
 och info
 och selftest
 och bench --rx --tx --channels 1,2 --sample-rate 30.72M --seconds 10
-och get system.info          # 含 fpga=bit-xxxxxxxxxxxx、console_rx=irq
+och get system.info          # firmware=SDK_CMD_1.2_20261107_SYNC、fpga=CH32H417_IP_0x01030001、console_rx=irq
+och sync --devices M,S1      # 多板同步（OCH 0.7.0），单板可用 och sync --loopback --no-mcs 自测
 ```
+
+多板同步、硬件时间戳只在 USB（OCH）模式下工作；libiio 接管期间时间基准不保证连续，切回 USB 后需重新同步。
 
 ### libiio（以太网）
 
@@ -230,7 +235,7 @@ cd omnicore-linux
 
 ## 测试结果
 
-全部在实板上测得（PC：Windows 11，OCH 0.4.8，libiio 0.24），1.2.0 为刷卡后整卡验证。详细数据、测试方法和历次结果见 **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)**，测试脚本在 [tests/](tests/)。
+全部在实板上测得（PC：Windows 11，libiio 0.24），1.3.0 为刷卡后整卡验证（OCH 0.7.0），启动时间和长测数据来自 1.2.0（OCH 0.4.8）。详细数据、测试方法和历次结果见 **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)**，测试脚本在 [tests/](tests/)。
 
 | 项目 | 结果 |
 |---|---|
@@ -293,6 +298,7 @@ docs/                      测试结果、图片（docs/images/make_figures.py �
 
 | 版本 | 内容 |
 |---|---|
+| 1.3.0 | 跟进固件 v2026.11.07.2：成帧 USB 传输、硬件时间戳、事件合并、多板同步（`OC_SYNC_AXI`）；设备树开启 AD9361 CLK_OUT（与 `board_config.c` 一致）；需要 OCH 0.6.0+ |
 | 1.2.2 | 统一登录账号为 `OmniCore` / `root`（UID 0）；关闭旧 root 登录并移除旧普通用户；保留开机和 SSH 标识 |
 | 1.2.1 | 开机、串口登录和 SSH 连接显示与 OCH 相同的 OmniCore SDR ASCII 标识；统一标识源文件 `configs/banner.txt` |
 | 1.2.0 | libiio 零拷贝（内核 + iiod 补丁，每个连接一个 iiod，低端内存 CMA），libiio 吞吐 58 → 80 MB/s；单路 RX 可连续 20 MSPS |

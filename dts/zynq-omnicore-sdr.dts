@@ -6,6 +6,7 @@
  *   axi_uart16550_0   0x43C00000  IRQ_F2P[14] -> SPI 58  (CH32 USART1 command link)
  *   CH32H417_IP_0     0x43C10000  IRQ_F2P[15] -> SPI 59  (UHSIF bridge, UIO)
  *   BOARD_CTRL_AXI_0  0x43C20000  -                      (fan/RGB, UIO)
+ *   OC_SYNC_AXI_0     0x43C30000  -                      (multi-board sync, omnicored /dev/mem)
  *   axi_ad9361        0x79020000  gps_pps IRQ_F2P[0] -> SPI 29
  *   adc_dma           0x7C400000  IRQ_F2P[13] -> SPI 57
  *   dac_dma           0x7C420000  IRQ_F2P[12] -> SPI 56
@@ -220,6 +221,9 @@
 		adi,lvds-invert1-control = <0xFF>;
 		adi,lvds-invert2-control = <0x0F>;
 		adi,dcxo-coarse-and-fine-tune = <8 5920>;
+		/* BUFFERED_XTALN_DCXO: 40 MHz CLK_OUT to FPGA U10 (time base internal PPS),
+		 * as clk_output_mode_select in board_config.c. */
+		adi,clk-output-mode-select = <1>;
 		adi,2rx-2tx-mode-enable;
 		adi,frequency-division-duplex-mode-enable;
 		adi,rx-rf-port-input-select = <0>;

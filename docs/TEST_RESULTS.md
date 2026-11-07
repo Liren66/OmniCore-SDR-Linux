@@ -7,6 +7,26 @@
 - 网线直连，板子地址 192.168.2.1。
 - 测试脚本见 [tests/](../tests/)。
 
+## 1.3.0 整卡验证（刷卡后，2026-11-07）
+
+固件 v2026.11.07.2（`ce7921c`，`SDK_CMD_1.2_20261107_SYNC`），bitstream sha256 `fda1b3ad2b49…`（`bit-fda1b3ad2b49`）。镜像 sha256 为 `90de0018c136e8f73c2f3527ab128af90160fa40fab33368aef26a4fd4eadab6`，写卡后整卡读回逐字节一致。PC：Windows 11，OCH 0.7.0，libiio 0.24，网线直连 192.168.2.1，USB3，未接外部参考。
+
+| 项目 | 结果 |
+|---|---|
+| 启动 | SD 启动后 OCH 可连接；`owner?` 为 `usb`，`system_info?` 报告 `SDK_CMD_1.2_20261107_SYNC`、`fpga=CH32H417_IP_0x01030001`、`transport=framed16k`、`sync=1`、`console_rx=irq` |
+| 硬件时间戳（`hw_timestamp_test`） | 通过：时间设置、内部 PPS、2 s 成帧连续时间戳（0 断档、0 时间错位）、定时 RX 精确起始与迟到标记、定时 TX 回环延迟恒为 11 样点 |
+| USB3 吞吐（OCH bench 30 s） | 2T2R 12 bit 44 MSPS、1T2R 58.5 MSPS、2T1R 58 MSPS、2T2R 8 bit 61.44 MSPS 均 0 故障；2RX 61.44 MSPS 第一次在 8–9 s 有 3 个 RX GAP，随后连续 3 次各 30 s 均 0 故障 |
+| 多板同步（单板回环） | `och sync --loopback --no-mcs --monitor 1`：在 TRIG 沿装载时间，SYNC 间隔恒为 40000000，相邻沿样点时间相差恰好 30720000；测得 40 MHz 为 40001008 Hz |
+| AD9361 MCS 步骤 | `mcs_step=0..5` 正常执行；之后 USB 自检（RX PRBS、TX 回环）通过，30.72 MSPS 2×2 bench 0 故障 |
+| libiio 接管 / OCH 抢回 | 2.32 s / 1.41 s；被抢回的采集正常结束，之后 USB 自检通过 |
+| USB 推流时连 libiio | 被拒，错误码 16（EBUSY），推流通过 |
+| libiio 吞吐 | 2 通道 71.7–77.9 MB/s，4 通道 89.2–101.0 MB/s |
+| 数据完整性（计数器回环，8 个 DMA 块，838 万样点） | 0 错误（4 通道 30.72 MSPS 超出以太网带宽，块间断档 3 处属预期） |
+| libiio 连续性 | 20 MSPS 单路 RX 1 GiB：0 断档 |
+| IIO TX 双音回环 | RX1 只在 +fs/32、RX2 只在 +fs/16，通过；`CH32H417_IP` 1.3 在 USB TX 关闭时仍把 ADI DMA 样点送往 DAC |
+
+未测：重启计时与 10 轮切换长测（需要 SSH 免密登录，新卡的主机密钥和授权密钥均为新生成）、多块板子实际组网同步。
+
 ## 1.2.2 账号与镜像验证（2026-10-29）
 
 - 从 1.2.1 构建目录增量构建 `omnicored rootfs image`，并再次执行 `rootfs image`，确认账号迁移及重复构建均成功。
